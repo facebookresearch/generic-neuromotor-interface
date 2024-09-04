@@ -1,0 +1,9 @@
+LICENSE
+README.md
+setup.py
+data_loading/__init__.py
+data_loading/data_loading.py
+emg2pose.egg-info/PKG-INFO
+emg2pose.egg-info/SOURCES.txt
+emg2pose.egg-info/dependency_links.txt
+emg2pose.egg-info/top_level.txt

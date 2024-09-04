@@ -1,0 +1,9 @@
+LICENSE
+README.md
+setup.py
+generic_neuromotor_inferface_data.egg-info/PKG-INFO
+generic_neuromotor_inferface_data.egg-info/SOURCES.txt
+generic_neuromotor_inferface_data.egg-info/dependency_links.txt
+generic_neuromotor_inferface_data.egg-info/top_level.txt
+neuromotor_data_loading/__init__.py
+neuromotor_data_loading/loading.py
