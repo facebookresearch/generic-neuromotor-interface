@@ -9,19 +9,8 @@ The dataset contains 100 sEMG recordings for each of the three tasks described i
 
 ![Figure 1 from the paper](images/figure_1.png)
 
-# Setup
-> NOTE: The github repo described in this section will be made available upon publication of the paper.
-
-First, clone the repo and install the package.
-
-```
-git clone git@github.com:facebookresearch/generic-neuromotor-interface-data.git ~/generic-neuromotor-interface-data
-
-pip install -e .
-```
-
 # Download the data
-> NOTE: The AWS addresses below will be updated as soon as the data are approved for open sourcing.
+> NOTE: The AWS addresses below will be updated as soon as data are approved for open sourcing.
 
 Download the full dataset (XXX GiB) with following command.
 
@@ -29,11 +18,34 @@ Download the full dataset (XXX GiB) with following command.
 cd ~ && wget https://fb-ctrl-oss.s3.amazonaws.com/...
 ```
 
-To quickly get started, you can alternatively download a smaller version of the dataset with only three recordings per task (XXX MiB).
+Alternatively, you can download a smaller version of the dataset with only three recordings per task (XXX MiB) to quickly get started.
 
 ```
 cd ~ && wget https://fb-ctrl-oss.s3.amazonaws.com/...
 ```
 
+# Setup
+> NOTE: The github repo described in this section will be made available upon publication of the paper.
+
+First, clone the repo, setup the conda environment, and install the local package.
+
+```
+# Clone the repo
+git clone git@github.com:facebookresearch/generic-neuromotor-interface-data.git ~/generic-neuromotor-interface-data
+
+# Setup and activate the environment
+cd ~/generic-neuromotor-interface-data
+conda env create -f environment.yml
+conda activate neuromotordata
+
+# Install the generic-neuromotor-inferface-data package
+pip install -e .
+```
+
+
 # Run the notebook
 Finally, use the `loading_emg_data.ipynb` notebook to see how data can be loaded and plotted.
+
+```
+jupyter lab loading_emg_data.ipynb
+```
