@@ -6,13 +6,13 @@ import pandas as pd
 class EMGData:
     def __init__(self, hdf5_path: str):
         self.hdf5_path = hdf5_path
-        self.timeseries, self.task = self.load_data()
-
-    def load_data(self):
+        
         with h5py.File(self.hdf5_path, "r") as file:
-            timeseries = file["data"][:]
-            task = file["data"].attrs["task"]
-        return timeseries, task
+            self.timeseries = file["data"][:]
+            self.task = file["data"].attrs["task"]
+        
+        self.stages = pd.read_hdf(hdf5_path, "stages")
+        
 
     def partition(self, start_t: float, end_t: float) -> np.ndarray:
         """Slice timeseries data between the given timestamps."""
@@ -32,14 +32,14 @@ class DiscreteGesturesData(EMGData):
     def __init__(self, hdf5_path: str):
         super().__init__(hdf5_path)
         assert self.task == "discrete_gestures"
-        self.labels = pd.read_hdf(hdf5_path, "labels")
+        self.prompts = pd.read_hdf(hdf5_path, "prompts")
 
 
 class HandwritingData(EMGData):
     def __init__(self, hdf5_path: str):
         super().__init__(hdf5_path)
         assert self.task == "handwriting"
-        self.labels = pd.read_hdf(hdf5_path, "labels")
+        self.prompts = pd.read_hdf(hdf5_path, "prompts")
 
 
 class WristPoseData(EMGData):
