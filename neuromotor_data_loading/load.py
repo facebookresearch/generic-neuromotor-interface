@@ -20,11 +20,13 @@ class EMGData:
         return self.timeseries[start_idx:end_idx]
 
     @property
-    def emg(self):
+    def emg(self) -> np.ndarray:
+        """Shape (time, chanel), units volts."""
         return self.timeseries["emg"]
 
     @property
-    def time(self):
+    def time(self) -> np.ndarray:
+        """Shape (time,), units seconds."""
         return self.timeseries["time"]
 
 
@@ -42,19 +44,23 @@ class HandwritingData(EMGData):
         self.prompts = pd.read_hdf(hdf5_path, "prompts")
 
 
-class WristPoseData(EMGData):
+class WristAngleData(EMGData):
     def __init__(self, hdf5_path: str):
         super().__init__(hdf5_path)
         assert self.task == "wrist_angles"
 
     @property
     def wrist_angles(self):
+        """
+        Shape (time, channel), units radians.
+        First channel is flexion/extension, second is radial/ulnar deviation.
+        """
         return self.timeseries["wrist_angles"]
 
 
 LOADERS = {
     "discrete_gestures": DiscreteGesturesData,
-    "wrist_angles": WristPoseData,
+    "wrist_angles": WristAngleData,
     "handwriting": HandwritingData,
 }
 

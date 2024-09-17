@@ -2,43 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_wrist(
-    time: np.ndarray,
-    wrist: np.ndarray,
-    normalize_time: bool = True,
-    ax: plt.Axes | None = None,
-) -> None:
-    """
-    Plot wrist angles over time.
-    
-    Parameters
-    ----------
-    time : np.ndarray
-        Time array.
-    wrist : np.ndarray
-        (time, channel) wrist angles array.
-    normalize_time : bool, optional
-        If True, subtract the first time value from all time values.
-    ax : plt.Axes, optional
-        Axes to plot on. If None, a new figure will be created.
-    """
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 4))
-
-    if normalize_time:
-        time = time.copy() - time[0]
-
-    num_channels = wrist.shape[1]
-    ax.plot(time, wrist)
-
-    ax.set(
-        xlabel="Time (seconds)",
-        ylabel="Wrist angle\n(degrees)",
-        xlim=[time[0], time[-1]],
-    )
-
-
 def plot_emg(
     time: np.ndarray,
     emg: np.ndarray,
@@ -50,10 +13,10 @@ def plot_emg(
 
     Parameters
     ----------
-    time : np.ndarray
-        Time array.
-    emg : np.ndarray
-        (time, channel) EMG array.
+    time : np.ndarray, shape (time,)
+        Time array (seconds).
+    emg : np.ndarray, shape (time, channel)
+        EMG array (volts).
     vertical_offset_quantile : float, optional
         The quantile to use for the vertical offset. Larger values result
         in greater vertical separation between channels.
@@ -83,4 +46,41 @@ def plot_emg(
         yticks=vertical_offsets,
         yticklabels=yticklabels,
         ylim=[-vertical_offset, vertical_offset * num_channels],
+    )
+
+
+def plot_wrist(
+    time: np.ndarray,
+    wrist: np.ndarray,
+    normalize_time: bool = True,
+    ax: plt.Axes | None = None,
+) -> None:
+    """
+    Plot wrist angles over time.
+    
+    Parameters
+    ----------
+    time : np.ndarray, shape (time,)
+        Time array (seconds).
+    wrist : np.ndarray, shape (time, channel)
+        Wrist angles array (radians).
+    normalize_time : bool, optional
+        If True, subtract the first time value from all time values.
+    ax : plt.Axes, optional
+        Axes to plot on. If None, a new figure will be created.
+    """
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 4))
+
+    if normalize_time:
+        time = time.copy() - time[0]
+
+    num_channels = wrist.shape[1]
+    ax.plot(time, wrist)
+
+    ax.set(
+        xlabel="Time (seconds)",
+        ylabel="Wrist angle\n(radians)",
+        xlim=[time[0], time[-1]],
     )

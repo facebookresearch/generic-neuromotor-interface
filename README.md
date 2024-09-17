@@ -5,7 +5,7 @@ for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02
 
 This repo is for loading and plotting surface electromyography (sEMG) data associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf).
 
-The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist_pose`. Each recording is packaged in an `hdf5` file. This repo contains utility functions for loading and plotting these recordings.
+The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist_angles`. Each recording is packaged in an `hdf5` file. This repo contains utility functions for loading and plotting these recordings.
 
 ![Figure 1 from the paper](images/figure_1.png)
 
