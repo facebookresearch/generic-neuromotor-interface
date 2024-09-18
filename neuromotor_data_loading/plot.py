@@ -64,6 +64,7 @@ def plot_wrist(
         Time array (seconds).
     wrist : np.ndarray, shape (time, channel)
         Wrist angles array (radians).
+        First channel is flexion/extension, second is radial/ulnar deviation.
     normalize_time : bool, optional
         If True, subtract the first time value from all time values.
     ax : plt.Axes, optional
@@ -84,3 +85,4 @@ def plot_wrist(
         ylabel="Wrist angle\n(radians)",
         xlim=[time[0], time[-1]],
     )
+    ax.legend(["Flexion/extension", "Radial/ulnar deviation"])
