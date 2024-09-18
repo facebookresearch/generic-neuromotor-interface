@@ -1,0 +1,12 @@
+name: neuromotordata
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.14
+  - pandas=2.2.2
+  - matplotlib=3.9.2
+  - h5py=3.11.0
+  - numpy=2.1.1
+  - pytables=3.10.1
+  - jupyterlab=4.1.8
