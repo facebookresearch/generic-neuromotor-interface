@@ -53,7 +53,12 @@ class WristAngleData(EMGData):
     def wrist_angles(self):
         """
         Shape (time, channel), units radians.
-        First channel is flexion/extension, second is radial/ulnar deviation.
+        
+        First channel is extension/flexion, where positive values
+        correspond to extension and negative values to flexion.
+        
+        Second channel is radial/ulnar deviation, where positive values
+        correspond to radial deviation, and negative values to ulnar deviation.
         """
         return self.timeseries["wrist_angles"]
 

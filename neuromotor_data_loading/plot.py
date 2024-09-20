@@ -65,7 +65,7 @@ def plot_emg(
     # Format axes
     ax.set(
         xlabel="Time (seconds)",
-        ylabel="EMG (a.u.)",
+        ylabel="EMG",
         xlim=[time[0], time[-1]],
         yticks=[],
         ylim=[-vertical_offset, vertical_offset * num_channels],

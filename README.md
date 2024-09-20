@@ -52,7 +52,7 @@ jupyter lab loading_emg_data.ipynb
 
 ## Dataset details
 
-sEMG is sampled at 2 kHz and is expressed in volts. Timestamps are expressed in seconds and begin at $0$. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `loading_emg_data.ipynb` for more details). Specifics for each task are as follows.
+sEMG is sampled at 2 kHz and is expressed in volts. No software filtering is applied. Timestamps are expressed in seconds and begin at $0$. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `loading_emg_data.ipynb` for more details). Specifics for each task are as follows.
 
 ### Discrete gestures
 
