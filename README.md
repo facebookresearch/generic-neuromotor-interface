@@ -8,19 +8,21 @@ The dataset contains 100 sEMG recordings for each of the three tasks described i
 
 ## Download the data
 
-> NOTE: The AWS addresses below will be updated as soon as data are approved for open sourcing.
+> NOTE: The following instructions will be updated once the data are moved to a publicly available location.
 > The instructions on this page are for MacOS.
 
-Download the full dataset (XXX GiB) with following command.
+Download the full dataset (69 GB) with following commands.
 
 ```bash
-cd ~ && wget https://fb-ctrl-oss.s3.amazonaws.com/...
+mkdir ~/emg_data
+aws s3 sync s3://fb-ctrl-general/oss/generic-neuromotor-interface/230924-0/ ~/emg_data
 ```
 
-Alternatively, you can download a smaller version of the dataset with only three recordings per task (XXX MiB) to quickly get started.
+Alternatively, you can download a smaller version of the dataset with only five recordings per task (3.5 GB) to quickly get started.
 
 ```bash
-cd ~ && wget https://fb-ctrl-oss.s3.amazonaws.com/...
+mkdir ~/emg_data
+aws s3 sync s3://fb-ctrl-general/oss/generic-neuromotor-interface/230924-0-small/ ~/emg_data
 ```
 
 ## Setup
