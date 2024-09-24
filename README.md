@@ -9,6 +9,7 @@ The dataset contains 100 sEMG recordings for each of the three tasks described i
 ## Download the data
 
 > NOTE: The following instructions will be updated once the data are moved to a publicly available location.
+
 > The instructions on this page are for MacOS.
 
 Download the full dataset (69 GB) with following commands.
@@ -27,14 +28,13 @@ aws s3 sync s3://fb-ctrl-general/oss/generic-neuromotor-interface/230924-0-small
 
 ## Setup
 
-> NOTE: The github repo described in this section will be made available upon publication of the paper.
+> NOTE: The github repo described in this section will be made available upon publication of the paper. For now, we will download rather than clone the repo.
 
-First, clone the repo, setup the conda environment, and install the local package.
+First download the repo by clicking on `< > Code -> Download ZIP` and move it to your home directory.
+
+Now setup the conda environment and install the local package.
 
 ```bash
-# Clone the repo
-git clone git@github.com:facebookresearch/generic-neuromotor-interface-data.git ~/generic-neuromotor-interface-data
-
 # Setup and activate the environment
 cd ~/generic-neuromotor-interface-data
 conda env create -f environment.yml
