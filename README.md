@@ -2,7 +2,7 @@
 
 This repo is for loading and plotting surface electromyography (sEMG) data associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf).
 
-The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist_angles`. Each recording is packaged in an `hdf5` file. This repo contains utility functions for loading and plotting these recordings.
+The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. Each recording is packaged in an `hdf5` file. This repo contains utility functions for loading and plotting these recordings.
 
 ![Figure 1 from the paper](images/figure_1.png)
 
@@ -64,6 +64,6 @@ Datasets include the `name` of each gesture and the `time` at which it occured. 
 
 Handwriting datasets include the `start` and `end` time of each prompt. `start` is the time the prompt appears, and `end` is the time at which participants finished writing the prompt. Stage names describe the types of prompts in each stage (e.g. `words_with_backspace`, `three_digit_numbers`, ...).
 
-### Wrist angles
+### Wrist
 
 Wrist angle datasets also include wrist angles measurements, which are upsampled to match the 2 kHz EMG sampling rate. Stage names include information about the type of task and movement in each stage (e.g. `cursor_to_target_task_horizontal_low_gain_screen_4`, `smooth_pursuit_task_high_gain_1`, ...).
