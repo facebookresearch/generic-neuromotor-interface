@@ -47,7 +47,7 @@ class HandwritingData(EMGData):
 class WristAngleData(EMGData):
     def __init__(self, hdf5_path: str):
         super().__init__(hdf5_path)
-        assert self.task == "wrist_angles"
+        assert self.task == "wrist"
 
     @property
     def wrist_angles(self):
@@ -65,7 +65,7 @@ class WristAngleData(EMGData):
 
 LOADERS = {
     "discrete_gestures": DiscreteGesturesData,
-    "wrist_angles": WristAngleData,
+    "wrist": WristAngleData,
     "handwriting": HandwritingData,
 }
 
