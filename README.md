@@ -8,29 +8,25 @@ The dataset contains 100 sEMG recordings for each of the three tasks described i
 
 ## Download the data
 
-> NOTE: The following instructions will be updated once the data are moved to a publicly available location.
-
 > The instructions on this page are for MacOS.
 
-Download the full dataset (69 GB) with following commands.
+Download the full dataset (21.5 GiB) with following command and then extract the file.
 
 ```bash
-mkdir ~/emg_data
-aws s3 sync s3://fb-ctrl-general/oss/generic-neuromotor-interface/230924-0/ ~/emg_data
+cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz -o emg_data.tar.gz
 ```
 
-Alternatively, you can download a smaller version of the dataset with only five recordings per task (3.5 GB) to quickly get started.
+Alternatively, you can download a smaller version of the dataset with only five recordings per task (667 MiB) to quickly get started.
 
 ```bash
-mkdir ~/emg_data
-aws s3 sync s3://fb-ctrl-general/oss/generic-neuromotor-interface/230924-0-small/ ~/emg_data
+cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data_small.tar.gz -o emg_data_small.tar.gz
 ```
 
 ## Setup
 
-> NOTE: The github repo described in this section will be made available upon publication of the paper. For now, we will download rather than clone the repo.
+> NOTE: The github repo described in this section will be made available upon publication of the paper.
 
-First download the repo by clicking on `< > Code -> Download ZIP` and move it to your home directory.
+Download the `generic-neuromotor-interface-data` repo and move it to your home directory.
 
 Now setup the conda environment and install the local package.
 
