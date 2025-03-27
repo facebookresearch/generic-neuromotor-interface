@@ -1,0 +1,15 @@
+# One dataset each for train, val, and test
+# One partition from each dataset
+# Useful for quick testing
+
+_target_: generic_neuromotor_interface.data.DataSplit
+
+train:
+  discrete_gestures_user_000_dataset_000:
+    - [1645824198.824576, 1645824318.830915]
+val:
+  discrete_gestures_user_001_dataset_000:
+    - [1643986857.014895, 1643986905.975968]
+test:
+  discrete_gestures_user_002_dataset_000:
+    - [1644503875.186906, 1644504151.358575]

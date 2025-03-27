@@ -1,0 +1,15 @@
+_target_: generic_neuromotor_interface.lightning.WristModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-3
+  _partial_: true
+  weight_decay: 0
+
+network:
+  _target_: generic_neuromotor_interface.networks.WristArchitecture
+  num_channels: 16
+  hidden_dims: [512]
+  lstm_hidden_dim: 512
+  lstm_num_layers: 2
+  output_dim: 1

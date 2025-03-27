@@ -1,0 +1,15 @@
+# One dataset each for train, val, and test
+# One partition from each dataset
+# Useful for quick testing
+
+_target_: generic_neuromotor_interface.data.DataSplit
+
+train:
+  wrist_user_000_dataset_000:
+    - [1714762352.4624736, 1714762412.6277332]
+val:
+  wrist_user_001_dataset_000:
+    - [1713470942.784463, 1713470988.1841812]
+test:
+  wrist_user_002_dataset_000:
+    - [1714744583.9217772, 1714744659.672359]

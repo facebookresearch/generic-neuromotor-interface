@@ -1,0 +1,2 @@
+_target_: generic_neuromotor_interface.data.DataSplit.from_csv
+csv_filename: ${data_location}/discrete_gestures_corpus.csv

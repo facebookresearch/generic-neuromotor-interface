@@ -1,0 +1,16 @@
+_target_: generic_neuromotor_interface.lightning.DiscreteGesturesModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-4
+  _partial_: true
+
+network:
+  _target_: generic_neuromotor_interface.networks.DiscreteGesturesArchitecture
+  output_channels: 9
+learning_rate: 1e-3
+weight_decay: 0.0
+lr_scheduler_patience: 5    # Number of epochs to wait before reducing LR
+lr_scheduler_factor: 0.5    # Factor by which to reduce LR
+lr_scheduler_min_lr: 1e-6   # Minimum learning rate
+monitor_metric: "val_loss"

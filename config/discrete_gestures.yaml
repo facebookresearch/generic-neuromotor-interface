@@ -1,0 +1,61 @@
+defaults:
+  - _self_
+  - data_module: discrete_gestures_data_module
+  - data_module/data_split: discrete_gestures_split
+  - lightning_module: discrete_gestures_module
+
+# Data settings
+data_location: ~/emg_data
+download_subset: False
+
+# Dag settings
+local: false
+name: discrete-gestures-train-dag
+
+# Train settings
+seed: 42
+train: True # Whether to run training
+eval: True # Whether to run evaluation on validation and test splits
+
+# Number of nodes to train in DDP (1 node = 1 machine (e.g. G4))
+# So 2 nodes ==> 2xG4 ==> 2x8 GPUs ==> 16 GPUs
+num_nodes: 1
+
+trainer:
+  max_epochs: 500
+  strategy: ddp
+  accelerator: auto
+
+# Callback settings
+monitor_metric: val_loss
+monitor_mode: min
+
+callbacks:
+  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+  - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    monitor: ${monitor_metric}
+    mode: ${monitor_mode}
+    save_last: True
+    verbose: True
+  - _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: ${monitor_metric}
+    mode: ${monitor_mode}
+    patience: 50
+    check_on_train_epoch_end: False
+    verbose: True
+
+# Customize hydra directory outputs
+# see: https://hydra.cc/docs/0.11/configure_hydra/workdir/
+hydra:
+  run:
+    dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ${hydra.run.dir}
+    subdir: ${hydra.job.num}_${hydra.job.override_dirname}/seed=${seed}
+  output_subdir: hydra_configs
+  job:
+    name: platform-paper-wrist
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed
