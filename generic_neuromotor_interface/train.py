@@ -36,7 +36,6 @@ def train(
 
     # download data from S3
     dst_folder = config.data_location
-    # TODO: Automatically download only the sessions in the corpus
     _download_data_from_aws_to(
         dst_folder, download_subset=download_subset, logger=logger
     )
@@ -96,10 +95,6 @@ def train(
             module, results = module_and_results
 
     if config.eval:
-
-        # TODO: Set batch size to 1 for validation?
-        # datamodule.batch_size = 1
-
         # NOTE: rank 0 only
         # Validate and test run on 1 device only (i.e. no distributed data parallelism)
         # This is to ensure reproducibility of metrics reported.
@@ -147,8 +142,6 @@ def evaluate_from_checkpoint(
     logger.info("Instantiating LightningDataModule")
     datamodule = instantiate(config.data_module, _convert_="all")
 
-    # TODO: Conslidate/reconcile this with the logic in `train()`
-    # As is, this is confusing to have 2 different trainers
     accelerator = config.trainer.get("accelerator", "auto")
     trainer = Trainer(
         accelerator=accelerator,
@@ -201,8 +194,6 @@ def _run_validate_and_test(module, datamodule, results, logger, accelerator):
 
     logger.info("Running validate and test w/ devices=1 only...")
 
-    # TODO: Conslidate/reconcile this with the logic in `train()`
-    # As is, this is confusing to have 2 different trainers
     trainer = Trainer(
         accelerator=accelerator,
         devices=1,

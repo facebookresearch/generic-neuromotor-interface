@@ -1,8 +1,8 @@
 # ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf)
 
-This repo is for loading and plotting surface electromyography (sEMG) data associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf).
+This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf).
 
-The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. Each recording is packaged in an `hdf5` file. This repo contains utility functions for loading and plotting these recordings.
+The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. This repo contains implementations of the models in the paper as well as code for training and evaluating the models.
 
 ![Figure 1 from the paper](images/figure_1.png)
 
@@ -11,6 +11,8 @@ The dataset contains 100 sEMG recordings for each of the three tasks described i
 > The instructions on this page are for MacOS.
 
 Download the full dataset (21.5 GiB) with following command and then extract the file.
+
+TODO: Update these links, and include comand for unpacking automaticaly?
 
 ```bash
 cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz -o emg_data.tar.gz
@@ -40,13 +42,18 @@ conda activate neuromotordata
 pip install -e .
 ```
 
-## Run the notebook
+## Explore the data in a notebook
+TODO: Update this section
 
 Finally, use the `loading_emg_data.ipynb` notebook to see how data can be loaded and plotted.
 
 ```bash
 jupyter lab loading_emg_data.ipynb
 ```
+
+## Train a model
+TODO
+
 
 ## Dataset details
 
