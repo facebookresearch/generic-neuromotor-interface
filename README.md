@@ -1,4 +1,4 @@
-# ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf)
+# [A generic noninvasive neuromotor interface for human-computer interaction](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf)
 
 This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf).
 
@@ -36,43 +36,39 @@ Now setup the conda environment and install the local package.
 # Setup and activate the environment
 cd ~/generic-neuromotor-interface-data
 conda env create -f environment.yml
-conda activate neuromotordata
+conda activate neuromotor
 
 # Install the generic-neuromotor-inferface-data package
 pip install -e .
 ```
 
 ## Explore the data in a notebook
-TODO: Update this section
 
-Finally, use the `loading_emg_data.ipynb` notebook to see how data can be loaded and plotted.
+Use the `loading_emg_data.ipynb` notebook to see how data can be loaded and plotted.
 
 ```bash
-jupyter lab loading_emg_data.ipynb
+jupyter lab notebooks/loading_emg_data.ipynb
 ```
 
 ## Train a model
 
-### Discrete gestures
+Train a model via
 
-Small test run:
+```bash
+python -m generic_neuromotor_interface.train --config-name=TASK_NAME
 ```
+
+where `TASK_NAME` is one of `discrete_gestures, handwriting, wrist`.
+
+You can also launch a small test run (1 epoch on a small dataset) via:
+
+```bash
+python -m generic_neuromotor_interface.train --config-name=TASK_NAME trainer.max_epochs=1 trainer.accelerator=cpu data_module/data_split=TASK_NAME_mini_split
 ```
-Full run
-
-### Handwriting
-
-Handwriting datasets include the `start` and `end` time of each prompt. `start` is the time the prompt appears, and `end` is the time at which participants finished writing the prompt. Stage names describe the types of prompts in each stage (e.g. `words_with_backspace`, `three_digit_numbers`, ...).
-
-### Wrist
-
-Wrist angle datasets also include wrist angles measurements, which are upsampled to match the 2 kHz EMG sampling rate. Stage names include information about the type of task and movement in each stage (e.g. `cursor_to_target_task_horizontal_low_gain_screen_4`, `smooth_pursuit_task_high_gain_1`, ...).
-
-
 
 ## Dataset details
 
-sEMG is sampled at 2 kHz and is expressed in volts. No software filtering is applied. Timestamps are expressed in seconds and begin at $0$. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `loading_emg_data.ipynb` for more details). Specifics for each task are as follows.
+sEMG is sampled at 2 kHz and is high pass filtered at 40 Hz. Timestamps are expressed in seconds. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `loading_emg_data.ipynb` for more details). Specifics for each task are as follows.
 
 ### Discrete gestures
 

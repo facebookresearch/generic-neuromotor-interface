@@ -29,3 +29,4 @@ dependencies:
   - levenshtein==0.26.1
   - python-levenshtein==0.26.1
   - pytables=3.10.1
+  - jupyterlab=4.1.8
