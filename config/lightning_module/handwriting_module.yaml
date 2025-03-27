@@ -45,13 +45,13 @@ network:
 
   specgram_augment:
     _target_: generic_neuromotor_interface.networks.MaskAug
-    max_num_masks: [3,2] # T,F
-    max_mask_lengths: [5,1] # T,F
+    max_num_masks: [3, 2] # T,F
+    max_mask_lengths: [5, 1] # T,F
     dims: "TF"
     axes_by_coord:
       N: [0]
       F: [1]
-      C: [2,3]
+      C: [2, 3]
       T: [4]
     mask_value: 0.0
 

@@ -21,12 +21,12 @@ eval: True # Whether to run evaluation on validation and test splits
 num_nodes: 1
 
 trainer:
-  max_epochs: 200
+  max_epochs: 400
   strategy: ddp
   accelerator: auto
   gradient_clip_val: 0.1
   gradient_clip_algorithm: "norm"
-  accumulate_grad_batches: 4
+  accumulate_grad_batches: 2
 
 # Callback settings
 monitor_metric: val/CER
@@ -53,7 +53,7 @@ hydra:
     subdir: ${hydra.job.num}_${hydra.job.override_dirname}/seed=${seed}
   output_subdir: hydra_configs
   job:
-    name: platform-paper-handwriting
+    name: handwriting
     config:
       override_dirname:
         exclude_keys:

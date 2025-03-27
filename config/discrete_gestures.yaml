@@ -53,7 +53,7 @@ hydra:
     subdir: ${hydra.job.num}_${hydra.job.override_dirname}/seed=${seed}
   output_subdir: hydra_configs
   job:
-    name: platform-paper-wrist
+    name: discrete-gestures
     config:
       override_dirname:
         exclude_keys:

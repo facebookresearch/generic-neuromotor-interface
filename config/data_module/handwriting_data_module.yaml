@@ -1,5 +1,5 @@
 _target_: generic_neuromotor_interface.data_module.HandwritingEmgDataModule
-batch_size: 16
+batch_size: 8
 padding: [19014, 974]
 concatenate_prompts: true
 min_duration_s: 16.0
