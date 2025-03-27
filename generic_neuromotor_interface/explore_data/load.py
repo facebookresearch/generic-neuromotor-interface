@@ -4,15 +4,20 @@ import pandas as pd
 
 
 class EMGData:
+    """
+    Light wrapper around EMG hdf5 files.
+    Used for basic data exploration in explore_data.ipynb.
+    Not used in model training.
+    """
+
     def __init__(self, hdf5_path: str):
         self.hdf5_path = hdf5_path
-        
+
         with h5py.File(self.hdf5_path, "r") as file:
             self.timeseries = file["data"][:]
             self.task = file["data"].attrs["task"]
-        
+
         self.stages = pd.read_hdf(hdf5_path, "stages")
-        
 
     def partition(self, start_t: float, end_t: float) -> np.ndarray:
         """Slice timeseries data between the given timestamps."""
@@ -53,10 +58,10 @@ class WristAngleData(EMGData):
     def wrist_angles(self):
         """
         Shape (time, channel), units radians.
-        
+
         First channel is extension/flexion, where positive values
         correspond to extension and negative values to flexion.
-        
+
         Second channel is radial/ulnar deviation, where positive values
         correspond to radial deviation, and negative values to ulnar deviation.
         """
