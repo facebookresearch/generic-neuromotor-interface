@@ -6,7 +6,6 @@ defaults:
 
 # Data settings
 data_location: ~/emg_data
-download_subset: false
 
 # Dag settings
 local: false

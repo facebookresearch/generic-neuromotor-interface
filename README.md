@@ -52,7 +52,22 @@ jupyter lab loading_emg_data.ipynb
 ```
 
 ## Train a model
-TODO
+
+### Discrete gestures
+
+Small test run:
+```
+```
+Full run
+
+### Handwriting
+
+Handwriting datasets include the `start` and `end` time of each prompt. `start` is the time the prompt appears, and `end` is the time at which participants finished writing the prompt. Stage names describe the types of prompts in each stage (e.g. `words_with_backspace`, `three_digit_numbers`, ...).
+
+### Wrist
+
+Wrist angle datasets also include wrist angles measurements, which are upsampled to match the 2 kHz EMG sampling rate. Stage names include information about the type of task and movement in each stage (e.g. `cursor_to_target_task_horizontal_low_gain_screen_4`, `smooth_pursuit_task_high_gain_1`, ...).
+
 
 
 ## Dataset details

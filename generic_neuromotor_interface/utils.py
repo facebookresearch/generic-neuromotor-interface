@@ -15,11 +15,6 @@ from typing import Any
 
 import pandas as pd
 import torch
-from generic_neuromotor_interface.constants import (
-    S3_BUCKET,
-    S3_PREFIX,
-    S3_SUBSET_PREFIX,
-)
 from hydra import compose, initialize, initialize_config_dir
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -110,27 +105,6 @@ def _run_bash_command(bash_command, logger: logging.Logger | None = None):
         if std_output:
             logger.info(std_output.strip().decode("utf-8"))
     logger.info(f"Complete! Got return code = {process_status}")
-
-
-def _download_data_from_aws_to(
-    dst_folder: str, download_subset: bool = False, logger: logging.Logger | None = None
-):
-
-    if logger is None:
-        logger = logging.getLogger(__name__)
-
-    logger.info(f"Downloading data to {dst_folder}")
-
-    os.makedirs(dst_folder, exist_ok=True)
-
-    logger.info("Downloading all data")
-    prefix = S3_SUBSET_PREFIX if download_subset else S3_PREFIX
-    s3_function = f"aws s3 sync s3://{S3_BUCKET}/{prefix}/ {dst_folder}"
-
-    start = time.time()
-    _run_bash_command(s3_function, logger=logger)
-    end = time.time()
-    logger.info(f"Downloaded data in {end - start} seconds")
 
 
 def handwriting_collate(samples: list[dict[str, torch.Tensor]]):

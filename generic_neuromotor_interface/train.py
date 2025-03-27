@@ -13,7 +13,6 @@ from typing import Any
 
 import hydra
 import pytorch_lightning as pl
-from generic_neuromotor_interface.utils import _download_data_from_aws_to
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -31,14 +30,6 @@ def train(
         logger = logging.getLogger(__name__)
 
     logger.info(f"\nConfig:\n{OmegaConf.to_yaml(config)}")
-
-    download_subset = config.get("download_subset", False)
-
-    # download data from S3
-    dst_folder = config.data_location
-    _download_data_from_aws_to(
-        dst_folder, download_subset=download_subset, logger=logger
-    )
 
     # Seed for determinism. This seeds torch, numpy and python random modules
     # taking global rank into account (for multi-process distributed setting).
@@ -121,14 +112,6 @@ def evaluate_from_checkpoint(
         logger = logging.getLogger(__name__)
 
     logger.info(f"\nConfig:\n{OmegaConf.to_yaml(config)}")
-
-    # download data from S3
-    dst_folder = config.data_location
-    download_subset = config.get("download_subset", False)
-
-    _download_data_from_aws_to(
-        dst_folder, download_subset=download_subset, logger=logger
-    )
 
     # Seed for determinism. This seeds torch, numpy and python random modules
     pl.seed_everything(config.seed, workers=True)
