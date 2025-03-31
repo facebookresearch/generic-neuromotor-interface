@@ -10,18 +10,18 @@ The dataset contains 100 sEMG recordings for each of the three tasks described i
 
 > The instructions on this page are for MacOS.
 
-Download the full dataset (21.5 GiB) with following command and then extract the file.
-
-TODO: Update these links, and include comand for unpacking automaticaly?
+Download the full dataset (120.7 GiB) and extract the files via:
 
 ```bash
 cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz -o emg_data.tar.gz
+tar -xvf emg_data_small.tar.gz -C ~/emg_data --mkdir
 ```
 
-Alternatively, you can download a smaller version of the dataset with only five recordings per task (667 MiB) to quickly get started.
+Alternatively, you can download and extract a smaller version of the dataset with only 3 users per task (3.7 GiB) to quickly get started.
 
 ```bash
 cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data_small.tar.gz -o emg_data_small.tar.gz
+tar -xvf emg_data_small.tar.gz -C ~/emg_data --mkdir
 ```
 
 ## Setup
