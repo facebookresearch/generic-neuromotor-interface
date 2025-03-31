@@ -30,3 +30,5 @@ dependencies:
   - python-levenshtein==0.26.1
   - pytables=3.10.1
   - jupyterlab=4.1.8
+  - pip:
+      - matplotlib==3.9.2

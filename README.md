@@ -14,14 +14,16 @@ Download the full dataset (120.7 GiB) and extract the files via:
 
 ```bash
 cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz -o emg_data.tar.gz
-tar -xvf emg_data_small.tar.gz -C ~/emg_data --mkdir
+mkdir -p ~/emg_data
+tar -xvf emg_data.tar.gz -C ~/emg_data
 ```
 
 Alternatively, you can download and extract a smaller version of the dataset with only 3 users per task (3.7 GiB) to quickly get started.
 
 ```bash
 cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data_small.tar.gz -o emg_data_small.tar.gz
-tar -xvf emg_data_small.tar.gz -C ~/emg_data --mkdir
+mkdir -p ~/emg_data
+tar -xvf emg_data_small.tar.gz -C ~/emg_data
 ```
 
 ## Setup
@@ -47,7 +49,7 @@ pip install -e .
 Use the `loading_emg_data.ipynb` notebook to see how data can be loaded and plotted.
 
 ```bash
-jupyter lab notebooks/loading_emg_data.ipynb
+jupyter lab generic_neuromotor_interface/explore_data/explore_data.ipynb
 ```
 
 ## Train a model
