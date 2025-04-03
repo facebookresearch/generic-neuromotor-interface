@@ -72,6 +72,8 @@ class DiscreteGesturesTransform:
         self, timeseries: np.ndarray, prompts: pd.DataFrame | None
     ) -> torch.Tensor:
 
+        assert prompts is not None
+
         # Get gesture prompts within the timeseries window
         tlim = (timeseries["time"][0], timeseries["time"][-1])
         prompts = prompts[prompts["time"].between(*tlim)]
@@ -129,6 +131,7 @@ class HandwritingTransform:
     def __call__(
         self, timeseries: np.ndarray, prompt: str | None
     ) -> dict[str, torch.Tensor | str]:
+        assert prompt is not None
         return {
             "emg": _to_tensor(timeseries["emg"]),  # (T, C)
             "prompts": _to_tensor(

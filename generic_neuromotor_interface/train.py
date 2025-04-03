@@ -66,7 +66,7 @@ def train(
         num_nodes=config.get("num_nodes", 1),
     )
 
-    results = {}
+    results: dict = {}
     if config.train:
 
         # Train

@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import unittest
+from typing import Any
 
 import torch
 from generic_neuromotor_interface.networks import (
@@ -95,6 +96,7 @@ WRIST_MODEL_MPF_PARAMS = {
     "stride": 40,
     "n_fft": 64,
     "fft_stride": 10,
+    "frequency_bins": DEFAULT_MPF_FREQUENCY_BINS,
 }
 
 HANDWRITING_MODEL_MPF_PARAMS = {
@@ -102,6 +104,7 @@ HANDWRITING_MODEL_MPF_PARAMS = {
     "stride": 40,
     "n_fft": 64,
     "fft_stride": 10,
+    "frequency_bins": DEFAULT_MPF_FREQUENCY_BINS,
 }
 
 
@@ -116,7 +119,7 @@ class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
         self,
         batch_size: int,
         num_channels: int,
-        mpf_parameters: dict[str, int],
+        mpf_parameters: dict[str, Any],
     ):
 
         # assemble module

@@ -463,7 +463,7 @@ def _matched_indices_implementation(
                         opcodes[i, j] = BOTH
 
     # Traceback to find the optimal alignment path
-    path = []
+    path: list[tuple[int | None, int | None]] = []
     i, j = left_len, right_len
 
     while i > 0 or j > 0:
@@ -556,7 +556,7 @@ def get_event_confusion_matrix(
     matches = get_matched_indices(padded_labels, predictions)
 
     # Get confusion matrix
-    confusion_matrix = Counter()
+    confusion_matrix: Counter = Counter()
 
     for left_idx, right_idx in matches:
         if left_idx is None:
@@ -656,7 +656,7 @@ def compute_cler(
     filtered_matches = get_matched_indices(padded_labels, filtered_predictions)
 
     # Calculate confusion matrix with the filtered predictions
-    confusion_matrix = Counter()
+    confusion_matrix: Counter = Counter()
     for left_idx, right_idx in filtered_matches:
         if left_idx is None:
             pass

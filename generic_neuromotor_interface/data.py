@@ -14,10 +14,10 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
-from typing_extensions import Self
 
 from generic_neuromotor_interface.constants import Task
 from generic_neuromotor_interface.transforms import Transform
+from typing_extensions import Self
 
 
 # List of start and end times within a dataset on which to train.
@@ -40,7 +40,7 @@ class DataSplit:
         """Create splits from csv file with (dataset, start, end, split) columns."""
 
         df = pd.read_csv(csv_filename)
-        splits = {}
+        splits: dict[str, dict] = {}
 
         for split in ["train", "val", "test"]:
             splits[split] = {}
@@ -208,11 +208,13 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         assert self.window_length > 0 and self.stride > 0
 
     def __len__(self) -> int:
+        assert self.window_length is not None and self.stride is not None
         return int(
             max(len(self.emg_recording) - self.window_length, 0) // self.stride + 1
         )
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+        assert self.window_length is not None and self.stride is not None
 
         start_sample = idx * self.stride
 
