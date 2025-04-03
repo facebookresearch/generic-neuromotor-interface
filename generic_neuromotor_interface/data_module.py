@@ -16,11 +16,11 @@ from torch.utils.data import ConcatDataset, DataLoader, default_collate
 from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 from generic_neuromotor_interface.data import (
     DataSplit,
-    EmgRecording,
     HandwritingEmgDataset,
     Partitions,
     WindowedEmgDataset,
 )
+from generic_neuromotor_interface.transforms import Transform
 from generic_neuromotor_interface.utils import (
     get_full_dataset_path,
     handwriting_collate,
@@ -66,7 +66,7 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         batch_size: int,
         num_workers: int,
         data_split: DataSplit,
-        transform: Callable[[EmgRecording], dict[str, torch.Tensor]],
+        transform: Transform,
         data_location: str,
         emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None = None,
     ) -> None:
@@ -83,7 +83,7 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         self.data_location = data_location
 
     def _make_dataset(
-        self, partition_dict: dict[str, Partitions], stage: str
+        self, partition_dict: dict[str, Partitions | None], stage: str
     ) -> ConcatDataset:
 
         datasets = []
@@ -162,7 +162,7 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         padding: tuple[int, int],
         num_workers: int,
         data_split: DataSplit,
-        transform: Callable[[EmgRecording], dict[str, torch.Tensor]],
+        transform: Transform,
         data_location: str,
         emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None = None,
         concatenate_prompts: bool = False,
@@ -182,7 +182,7 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         self.min_duration_s = min_duration_s
 
     def _make_dataset(
-        self, partition_dict: dict[str, Partitions], stage: str
+        self, partition_dict: dict[str, Partitions | None], stage: str
     ) -> ConcatDataset:
 
         datasets = []
@@ -203,7 +203,7 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
                             self.emg_augmentation if stage == "train" else None
                         ),
                         concatenate_prompts=(
-                            self.concatenate_prompts if stage == "train" else None
+                            self.concatenate_prompts if stage == "train" else False
                         ),
                         min_duration_s=self.min_duration_s if stage == "train" else 0.0,
                     )

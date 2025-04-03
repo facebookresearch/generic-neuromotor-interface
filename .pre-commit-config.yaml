@@ -28,11 +28,10 @@ repos:
       - id: flake8
         args: ['--ignore=E203,W503']  # ignore some false positives which are used under PEP
 
-  # Temporarily disable mypy checks, needs extensive fixes
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.11.2
-  #   hooks:
-  #     - id: mypy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.8

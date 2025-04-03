@@ -97,6 +97,7 @@ def _run_bash_command(bash_command, logger: logging.Logger | None = None):
 
     logger.info("Polling subprocess for stdout...")
     while True:
+        assert process.stdout is not None
         std_output = process.stdout.readline()
         process_status = process.poll()
         if not std_output and process_status is not None:

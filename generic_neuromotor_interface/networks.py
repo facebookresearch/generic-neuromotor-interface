@@ -656,7 +656,7 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
 
         return outputs
 
-    def compute_time_downsampling(self, emg_lengths: list[int]) -> Sequence[int]:
+    def compute_time_downsampling(self, emg_lengths: torch.Tensor) -> Sequence[int]:
         cospectrum_len = 1 + (emg_lengths - self.n_fft) // self.fft_stride
         return (cospectrum_len - self.window_length // self.fft_stride) // (
             self.stride // self.fft_stride
@@ -691,7 +691,7 @@ class _AxesMask(nn.Module):
     def __init__(
         self,
         max_mask_length: int,
-        axes: list[int],
+        axes: tuple[int, ...],
         mask_value: float = 0.0,
     ):
         super().__init__()
@@ -768,7 +768,7 @@ class MaskAug(nn.Module):
         max_num_masks: list[int],
         max_mask_lengths: list[int],
         dims: str = "TF",
-        axes_by_coord: dict[str, list[int]] | None = None,
+        axes_by_coord: dict[str, tuple[int, ...]] | None = None,
         mask_value: float = 0.0,
     ):
         super().__init__()
@@ -1401,7 +1401,7 @@ def ConformerEncoder(
     stride: int | list[int],
     num_heads: int,
     attn_window_size: int | list[int],
-    num_layers: int,
+    num_layers: int | None,
     conv_lpad: LPadType | list[LPadType] = 0,
     attn_lpad: LPadType | list[LPadType] = "steady",
     dropout: float = 0.0,
@@ -1545,7 +1545,7 @@ class HandwritingArchitecture(nn.Module):
         return emissions, self.slice
 
     def compute_time_downsampling(
-        self, emg_lengths: list[int], slc: slice
+        self, emg_lengths: torch.Tensor, slc: slice
     ) -> Sequence[int]:
 
         # Featurization
