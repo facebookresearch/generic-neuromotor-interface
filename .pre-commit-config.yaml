@@ -22,7 +22,6 @@ repos:
           - black==24.8.0
           - usort==1.0.8
 
-  # Temporarily disable flake8 checks, needs extensive fixes
   - repo: https://github.com/pycqa/flake8
     rev: 7.1.1
     hooks:
