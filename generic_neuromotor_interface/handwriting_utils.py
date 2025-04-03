@@ -206,11 +206,11 @@ class CharacterSet:
 
     def key_to_unicode(self, key: KeyChar) -> int:
         """Fetch the unicode value corresponding to the given key."""
-        return self._key_to_unicode[key]  # type: ignore[no-any-return]
+        return self._key_to_unicode[key]
 
     def unicode_to_key(self, unicode_val: int) -> KeyChar:
         """Fetch the key corresponding to the given unicode value."""
-        return self._unicode_to_key[unicode_val]  # type: ignore[no-any-return]
+        return self._unicode_to_key[unicode_val]
 
     def key_to_label(self, key: KeyChar) -> int:
         """Fetch the categorical label corresponding to the given key."""

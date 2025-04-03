@@ -96,11 +96,12 @@ class FingerStateMaskGenerator(torch.nn.Module):
     """
     Generate finger state masks based on press and release event labels.
 
-    Input labels are tensors of shape [batch, num_gestures, times] where each channel has pulses
-    representing events. Each pulse has a duration of 40ms (8 samples at 200 Hz).
+    Input labels are tensors of shape [batch, num_gestures, times] where
+    each channel has pulses representing events. Each pulse has a duration
+    of 40ms (8 samples at 200 Hz).
 
-    The output mask has value 1 from the beginning of the press until the end of the release,
-    and 0 elsewhere for each finger.
+    The output mask has value 1 from the beginning of the press until the
+    end of the release, and 0 elsewhere for each finger.
 
     Parameters
     ----------
@@ -131,10 +132,11 @@ class FingerStateMaskGenerator(torch.nn.Module):
         Parameters
         ----------
         gesture_labels : torch.Tensor
-            Tensor of shape [batch, num_gestures, times] where each channel corresponds to gesture types
-            defined in GestureType.
+            Tensor of shape [batch, num_gestures, times] where each channel corresponds
+            to gesture types defined in GestureType.
 
-            Each gesture is represented as a pulse with 40ms duration (8 samples at 200 Hz)
+            Each gesture is represented as a pulse with 40ms duration
+            (8 samples at 200 Hz)
 
         Returns
         -------
@@ -392,7 +394,8 @@ class HandwritingModule(BaseLightningModule):
 
             if i == N - 1:
                 print(
-                    f"pred: {self.decoder._charset.labels_to_str(predictions[i])}, target: {self.decoder._charset.labels_to_str(target)}"
+                    f"pred: {self.decoder._charset.labels_to_str(predictions[i])}, "
+                    f"target: {self.decoder._charset.labels_to_str(target)}"
                 )
 
         return loss

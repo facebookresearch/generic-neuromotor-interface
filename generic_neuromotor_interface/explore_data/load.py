@@ -76,7 +76,8 @@ LOADERS = {
 
 
 def load_data(hdf5_path: str):
-    """Load a dataset, automatically determining the correct loader for the dataset type."""
+    """Load a dataset, automatically determining the correct loader
+    for the dataset type."""
     with h5py.File(hdf5_path, "r") as file:
         task = file["data"].attrs["task"]
     return LOADERS[task](hdf5_path)

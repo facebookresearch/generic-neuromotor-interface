@@ -76,7 +76,8 @@ def _debounce_events(
     """
     Apply debouncing to a list of events with specific rules:
     1. If two non-release events occur within debounce time, the later event is removed
-    2. For release events (index_release, middle_release), only debounce the same kind of release
+    2. For release events (index_release, middle_release), only debounce the same
+       kind of release
 
     Parameters
     ----------
@@ -322,8 +323,8 @@ def _matched_indices_implementation(
     """
     Align two sequences using a time-bounded Needleman-Wunsch algorithm.
 
-    This is a Numba-compatible implementation that preserves the original algorithm logic
-    but uses arrays instead of dictionaries for the dynamic programming grid.
+    This is a Numba-compatible implementation that preserves the original algorithm
+    logic but uses arrays instead of dictionaries for the dynamic programming grid.
 
     Parameters
     ----------

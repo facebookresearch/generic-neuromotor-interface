@@ -237,7 +237,8 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         if self.emg_augmentation is not None:
             datum["emg"] = self.emg_augmentation(datum["emg"])
 
-        # Add timestamps and prompts to the discrete_gestures test set for CLER evaluation
+        # Add timestamps and prompts to the discrete_gestures test set
+        # for CLER evaluation
         is_test_mode = self.window_length == len(self.emg_recording)
         is_discrete_gestures = "discrete_gestures" in str(self.hdf5_path)
 
