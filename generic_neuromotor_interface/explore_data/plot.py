@@ -29,7 +29,6 @@ def plot_emg(
         Axes to plot on. If None, a new figure will be created.
     """
 
-
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4))
 
@@ -40,8 +39,6 @@ def plot_emg(
     vertical_offset = np.quantile(np.abs(emg), vertical_offset_quantile) * 2
     vertical_offsets = np.arange(num_channels) * vertical_offset
     ax.plot(time, emg + vertical_offsets)
-
-    yticklabels = np.arange(num_channels) + 1
 
     # Add vertical scale bar
     dy = -vertical_offset / 2
@@ -70,9 +67,9 @@ def plot_emg(
         yticks=[],
         ylim=[-vertical_offset, vertical_offset * num_channels],
     )
-    ax.spines['left'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 def plot_wrist(
@@ -83,7 +80,7 @@ def plot_wrist(
 ) -> None:
     """
     Plot wrist angles over time.
-    
+
     Parameters
     ----------
     time : np.ndarray, shape (time,)
@@ -103,7 +100,6 @@ def plot_wrist(
     if normalize_time:
         time = time.copy() - time[0]
 
-    num_channels = wrist.shape[1]
     ax.plot(time, wrist)
 
     ax.set(
@@ -111,7 +107,7 @@ def plot_wrist(
         ylabel="Wrist angle\n(radians)",
         xlim=[time[0], time[-1]],
     )
-    
+
     ax.legend(["Flexion/extension", "Radial/ulnar deviation"])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)

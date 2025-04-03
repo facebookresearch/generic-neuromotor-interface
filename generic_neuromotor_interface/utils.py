@@ -8,7 +8,6 @@
 import logging
 import os
 import subprocess
-import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
