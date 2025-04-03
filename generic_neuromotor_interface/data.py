@@ -14,10 +14,10 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
+from typing_extensions import Self
 
 from generic_neuromotor_interface.constants import Task
 from generic_neuromotor_interface.transforms import Transform
-from typing_extensions import Self
 
 
 # List of start and end times within a dataset on which to train.
