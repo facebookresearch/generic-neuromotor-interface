@@ -162,7 +162,8 @@ def _load_and_report_best_checkpoint(
     best_checkpoint_score = checkpoint_callback.best_model_score
 
     logger.info(
-        f"Loading best checkpoint from {best_checkpoint_path=} with {best_checkpoint_score=}..."
+        f"Loading best checkpoint from {best_checkpoint_path=} "
+        f"with {best_checkpoint_score=}..."
     )
     module = module.__class__.load_from_checkpoint(best_checkpoint_path)
 

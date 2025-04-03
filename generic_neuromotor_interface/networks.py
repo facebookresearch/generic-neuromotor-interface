@@ -99,7 +99,8 @@ class ConvNet(nn.Module):
 
 
 class DiscreteGesturesArchitecture(nn.Module):
-    """Discrete Gestures Network that combines ConvNet with stacked LSTM and projection layer.
+    """Discrete Gestures Network that combines ConvNet with stacked LSTM
+    and projection layer.
 
     Parameters
     ----------
@@ -427,7 +428,8 @@ class VectorizeSymmetricMatrix(nn.Module):
 
         if num_adjacent_cov > max_adjacent_cov:
             raise ValueError(
-                f"invalid value num_adjacent_cov={num_adjacent_cov=}, which must be less than {num_channels // 2=}"
+                f"invalid value num_adjacent_cov={num_adjacent_cov=}, "
+                f"which must be less than {num_channels // 2=}"
             )
 
         # get indices of upper triangular values
@@ -485,10 +487,10 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
     fs : float
         Sampling frequency of the input EMG, by default 2000.0.
     frequency_bins : list[tuple[float, float]] or None, optional
-        Average over FFT frequencies within each bin. For example, to produce two bins,
-        one between 100 and 200Hz, and the other between 300 and 500Hz, set `frequency_bins`
-        to [(100, 200), (300, 500)]. By default None, in which case all FFT frequencies are
-        returned as is.
+        Average over FFT frequencies within each bin. For example, to produce two
+        bins, one between 100 and 200Hz, and the other between 300 and 500Hz,
+        set `frequency_bins` to [(100, 200), (300, 500)]. By default None, in which
+        case all FFT frequencies are returned as is.
     """
 
     def __init__(
@@ -662,12 +664,14 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
 
 
 class _AxesMask(nn.Module):
-    """Samples and applies a mask along a given axis of a `MultivariatePowerFrequencyFeatures`.
+    """Samples and applies a mask along a given axis of a
+    `MultivariatePowerFrequencyFeatures`.
 
     Takes as input batches of Multivariate Power Frequency Feature batch of shape
         (batch_size, frequency, channels, channels, time)
-    and produces outputs of the same shape, where a mask of length `max_mask_length` is
-    applied to each of the specified axes(e.g., axes=[1,4] -> mask applied to frequency and time).
+    and produces outputs of the same shape, where a mask of length `max_mask_length`
+    is applied to each of the specified axes (e.g., axes=[1,4] -> mask applied to
+    frequency and time).
 
     The filler value of the mask is specified by `mask_value`.
 
@@ -733,12 +737,14 @@ class _AxesMask(nn.Module):
 
 
 class MaskAug(nn.Module):
-    """Implementation of SpecAugment, which applies time- and frequency-aligned masks to these spectral features to a `MultivariatePowerFrequencyFeatures`.
+    """Implementation of SpecAugment, which applies time- and frequency-aligned masks
+    to these spectral features to a `MultivariatePowerFrequencyFeatures`.
 
     Takes as input batches of Multivariate Power Frequency Feature batch of shape
         (batch_size, frequency, channels, channels, time)
-    and produces outputs of the same shape, where a for each dimensions in `dims`, we applied `max_num_masks` mask of length `max_mask_length` is
-    applied to each of the specified axes(e.g., axes=[1,4] -> mask applied to frequency and time).
+    and produces outputs of the same shape, where a for each dimensions in `dims`,
+    we applied `max_num_masks` mask of length `max_mask_length` is applied to each
+    of the specified axes(e.g., axes=[1,4] -> mask applied to frequency and time).
 
     The filler value of the mask is specified by `mask_value`.
 
@@ -964,8 +970,9 @@ class SlicedSequential(nn.Sequential):
     of the linear chain of modules.
 
     The module automatically computes a `slice` object alongside the model forward
-    pass prediction that can be used to slice the input tensor to match the temporal dimension
-    of output tensor. This is used in the handwriting task to compute the correct emission length.
+    pass prediction that can be used to slice the input tensor to match the temporal
+    dimension of the output tensor. This is used in the handwriting task to compute
+    the correct emission length.
 
     At initialization, the module will go through the list of modules and check if they
     have the extra_left_context and stride attributes. If they do, it will update the
@@ -980,7 +987,7 @@ class SlicedSequential(nn.Sequential):
         sequence of Ordered dict of `nn.Module` to wrap within.
     """
 
-    def __init__(self, *modules) -> None:  # type: ignore
+    def __init__(self, *modules) -> None:
         super().__init__(*modules)
         self.extra_left_context, self.stride = self.__get_extra_left_context_and_stride(
             list(self)
@@ -1000,7 +1007,8 @@ class MultiHeadAttention(nn.Module):
     r"""Causal MultiheadAttention implementation.
 
     Causality is imposed through windowing of the input data, i.e., a sequence.
-        See full description of how we achieve this in the `_init_and_register_attn_mask` method.
+        See full description of how we achieve this in the
+        `_init_and_register_attn_mask` method.
 
 
     Takes as input batches of shape
@@ -1013,14 +1021,17 @@ class MultiHeadAttention(nn.Module):
     Parameters
     ----------
     input_dim: .
-    num_heads: Number of parallel attention heads. Note that ``embed_dim`` will be split
-        across ``num_heads`` (i.e. each head will have dimension ``embed_dim // num_heads``).
+    num_heads: Number of parallel attention heads. Note that ``embed_dim``
+        will be split across ``num_heads`` (i.e. each head will have dimension
+        ``embed_dim // num_heads``).
     window_size: Receptive field of the attention.
-    stride: Stride used to compute the windows (receptive field) over which the attention is computed.
-    lpad: Left padding when creating the attention windows. Defaults to "steady" which adds zero
-        padding to the left of the sample such that the output time length is not affected by the
-        receptive field size.
-    dropout: Dropout probability on ``attn_output_weights``. Default: ``0.0`` (no dropout).
+    stride: Stride used to compute the windows (receptive field) over which
+        the attention is computed.
+    lpad: Left padding when creating the attention windows. Defaults to "steady"
+        which adds zero padding to the left of the sample such that the output
+        time length is not affected by the receptive field size.
+    dropout: Dropout probability on ``attn_output_weights``.
+        Default: ``0.0`` (no dropout).
     """
 
     def __init__(
@@ -1131,7 +1142,7 @@ class MultiHeadAttention(nn.Module):
             min(t_end, self.window_size - 1),
             self.stride,
         )
-        attn_mask_warmup = self.attn_mask[warmup_idx]  # type: ignore[attr-defined]
+        attn_mask_warmup = self.attn_mask[warmup_idx]
 
         # 2. Remaining samples in T_out correspond to the post-warmup steady state
         #    (i.e., attention_window == window_size).
@@ -1145,7 +1156,7 @@ class MultiHeadAttention(nn.Module):
         #    We use torch.expand here which simply creates a view unlike torch.repeat
         #    to avoid memory allocation and copy.
         # attn_mask_steady: (T_out_steady, window_size)
-        attn_mask_steady = self.attn_mask[-1:, :].expand(T_out_steady, -1)  # type: ignore[attr-defined]
+        attn_mask_steady = self.attn_mask[-1:, :].expand(T_out_steady, -1)
 
         # 4. Create the full mask for T_out by concatenating the corresponding masks
         #    for warmup and steady state samples.
