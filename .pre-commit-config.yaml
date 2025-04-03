@@ -10,8 +10,6 @@ repos:
       - id: debug-statements
       - id: end-of-file-fixer
       - id: name-tests-test
-      - id: no-commit-to-branch
-        args: ['--branch=main']
       - id: trailing-whitespace
 
   - repo: https://github.com/omnilib/ufmt
