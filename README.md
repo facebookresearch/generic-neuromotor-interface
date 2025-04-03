@@ -1,6 +1,8 @@
-# [A generic noninvasive neuromotor interface for human-computer interaction](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf)
+# [A generic noninvasive neuromotor interface for human-computer interaction](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2)
 
-This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v1.full.pdf).
+[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`Dataset`](https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz) ] [ [`BibTeX`](#citation) ]
+
+This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2).
 
 The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. This repo contains implementations of the models in the paper as well as code for training and evaluating the models.
 
@@ -83,3 +85,23 @@ Handwriting datasets include the `start` and `end` time of each prompt. `start` 
 ### Wrist
 
 Wrist angle datasets also include wrist angles measurements, which are upsampled to match the 2 kHz EMG sampling rate. Stage names include information about the type of task and movement in each stage (e.g. `cursor_to_target_task_horizontal_low_gain_screen_4`, `smooth_pursuit_task_high_gain_1`, ...).
+
+## License
+
+The dataset and the code are CC-BY-NC-4.0 licensed, as found in the LICENSE file.
+
+## Citation
+
+```
+@article{generic_neuromotor_interface_2024,
+ author = {CTRL-labs at Reality Labs},
+ title = {A generic noninvasive neuromotor interface for human-computer interaction},
+ elocation-id = {2024.02.23.581779},
+ year = {2024},
+ doi = {10.1101/2024.02.23.581779},
+ publisher = {Cold Spring Harbor Laboratory},
+ URL = {https://www.biorxiv.org/content/early/2024/07/23/2024.02.23.581779},
+ eprint = {https://www.biorxiv.org/content/early/2024/07/23/2024.02.23.581779.full.pdf},
+ journal = {bioRxiv}
+}
+```

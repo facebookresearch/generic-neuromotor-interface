@@ -10,8 +10,10 @@ from setuptools import find_packages, setup
 setup(
     name="generic_neuromotor_interface",
     version="0.1.0",
-    description="",
-    author="CTRL Research Team, Meta Reality Labs",
+    description="Code for exploring surface electromyography (sEMG) data and "
+    "training models associated with the paper `A generic noninvasive neuromotor "
+    "interface for human-computer interaction`",
+    author="CTRL-labs at Reality Labs, Meta",
     author_email="",
     packages=find_packages(),
     install_requires=[
