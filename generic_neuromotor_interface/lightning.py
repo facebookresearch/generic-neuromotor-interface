@@ -12,6 +12,8 @@ import numpy as np
 
 import pytorch_lightning as pl
 import torch
+from torch import nn
+from torchmetrics import MetricCollection
 
 from generic_neuromotor_interface.cler import compute_cler, GestureType
 from generic_neuromotor_interface.handwriting_utils import (
@@ -19,8 +21,6 @@ from generic_neuromotor_interface.handwriting_utils import (
     charset,
     Decoder,
 )
-from torch import nn
-from torchmetrics import MetricCollection
 
 log = logging.getLogger(__name__)
 

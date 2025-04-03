@@ -557,13 +557,15 @@ def get_event_confusion_matrix(
     # Get confusion matrix
     confusion_matrix = Counter()
 
-    for l, r in matches:
-        if l is None:
+    for left_idx, right_idx in matches:
+        if left_idx is None:
             pass
-        elif r is None:
-            confusion_matrix[labels["name"].iloc[l], None] += 1
+        elif right_idx is None:
+            confusion_matrix[labels["name"].iloc[left_idx], None] += 1
         else:
-            confusion_matrix[labels["name"].iloc[l], predictions["name"].iloc[r]] += 1
+            confusion_matrix[
+                labels["name"].iloc[left_idx], predictions["name"].iloc[right_idx]
+            ] += 1
 
     return confusion_matrix
 
@@ -654,14 +656,15 @@ def compute_cler(
 
     # Calculate confusion matrix with the filtered predictions
     confusion_matrix = Counter()
-    for l, r in filtered_matches:
-        if l is None:
+    for left_idx, right_idx in filtered_matches:
+        if left_idx is None:
             pass
-        elif r is None:
-            confusion_matrix[labels["name"].iloc[l], None] += 1
+        elif right_idx is None:
+            confusion_matrix[labels["name"].iloc[left_idx], None] += 1
         else:
             confusion_matrix[
-                labels["name"].iloc[l], filtered_predictions["name"].iloc[r]
+                labels["name"].iloc[left_idx],
+                filtered_predictions["name"].iloc[right_idx],
             ] += 1
 
     # Calculate the classification error rate
