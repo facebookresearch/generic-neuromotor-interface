@@ -23,7 +23,7 @@ class TestWristModule(unittest.TestCase):
         lstm_hidden_dim: int,
         lstm_num_layers: int,
         output_dim: int,
-    ):
+    ) -> WristModule:
         return WristModule(
             network=WristArchitecture(
                 num_channels=num_channels,
