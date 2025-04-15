@@ -11,9 +11,9 @@ from typing import Literal
 import numba as nb
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from generic_neuromotor_interface.constants import GestureType
-from numpy.typing import NDArray
 
 THRESHOLD = 0.35
 DEBOUNCE = 0.05

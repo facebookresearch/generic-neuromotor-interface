@@ -61,7 +61,9 @@ class WristModule(BaseLightningModule):
         super().__init__(network=network, optimizer=optimizer)
         self.loss_fn = torch.nn.L1Loss(reduction="mean")
 
-    def _step(self, batch: Mapping[str, torch.Tensor], stage: str = "train") -> float:
+    def _step(
+        self, batch: Mapping[str, torch.Tensor], stage: str = "train"
+    ) -> torch.Tensor:
 
         # Extract data
         emg = batch["emg"]

@@ -7,10 +7,12 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
+
 from generic_neuromotor_interface.constants import GestureType
 
 from generic_neuromotor_interface.handwriting_utils import charset
@@ -19,7 +21,7 @@ from generic_neuromotor_interface.handwriting_utils import charset
 Transform = Callable[[np.ndarray, pd.DataFrame | None], torch.Tensor]
 
 
-def _to_tensor(data: np.ndarray) -> torch.Tensor:
+def _to_tensor(data: np.ndarray | list[Any]) -> torch.Tensor:
 
     if isinstance(data, np.ndarray):
         return torch.from_numpy(data).float()
@@ -59,7 +61,7 @@ class DiscreteGesturesTransform:
     """
 
     # Pulse extends from (time + pulse_window[0] to time + pulse_window[1])
-    pulse_window: list[float, float]  # Seconds
+    pulse_window: list[float]  # Seconds
 
     def __call__(
         self, timeseries: np.ndarray, prompts: pd.DataFrame | None

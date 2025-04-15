@@ -170,9 +170,9 @@ class DiscreteGesturesArchitecture(nn.Module):
         x = self.dropout(x)
 
         # Layer normalization
-        x = x.transpose(
-            1, 2
-        )  # (batch_size, conv_output_channels, sequence_length) -> (batch_size, sequence_length, conv_output_channels)
+        # (batch_size, conv_output_channels, sequence_length)
+        # -> (batch_size, sequence_length, conv_output_channels)
+        x = x.transpose(1, 2)
         x = self.post_conv_layer_norm(x)
 
         # Stacked LSTM layers
@@ -973,7 +973,7 @@ class SlicedSequential(nn.Sequential):
         sequence of Ordered dict of `nn.Module` to wrap within.
     """
 
-    def __init__(self, *modules) -> None:  # type: ignore
+    def __init__(self, *modules) -> None:
         super().__init__(*modules)
         self.extra_left_context, self.stride = self.__get_extra_left_context_and_stride(
             list(self)
