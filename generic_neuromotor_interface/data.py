@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from pathlib import Path
+from typing import Any
 
 import h5py
 import numpy as np
@@ -140,7 +141,7 @@ class EmgRecording:
 
     def get_idx_slice(
         self, start_t: float = -np.inf, end_t: float = np.inf
-    ) -> np.ndarray:
+    ) -> tuple[Any, Any]:
         """Load and return a contiguous slice of the timeseries windowed
         by the provided start and end timestamps.
 

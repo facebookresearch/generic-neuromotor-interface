@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import unittest
+from typing import Any
 
 import torch
 from generic_neuromotor_interface.networks import (
@@ -117,7 +118,7 @@ class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
         self,
         batch_size: int,
         num_channels: int,
-        mpf_parameters: dict[str, int],
+        mpf_parameters: dict[str, Any],
     ) -> None:
 
         # assemble module
