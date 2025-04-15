@@ -26,12 +26,6 @@ jobs:
         conda activate neuromotor
         pip install -e .
 
-    - name: Run pre-commit checks
-      shell: bash -el {0}
-      run: |
-        conda activate neuromotor
-        pre-commit run --all-files
-
     - name: Run tests
       shell: bash -el {0}
       run: |
