@@ -1,44 +1,47 @@
-# [A generic noninvasive neuromotor interface for human-computer interaction](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2)
+# A generic noninvasive neuromotor interface for human-computer interaction
 
 [ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`Dataset`](https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz) ] [ [`BibTeX`](#citation) ]
 
 This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2).
 
-The dataset contains 100 sEMG recordings for each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. This repo contains implementations of the models in the paper as well as code for training and evaluating the models.
+The dataset contains sEMG recordings from 100 participants in each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. This repo contains implementations of the models in the paper as well as code for training and evaluating the models.
 
 ![Figure 1 from the paper](images/figure_1.png)
 
-## Download the data
+## Download the data and models
 
+> NOTE: The github repo described in this section will be made available upon publication of the paper.
 > The instructions on this page are for MacOS.
 
-Download the full dataset (120.7 GiB) and extract the files via:
+Download the `generic-neuromotor-interface` repo and move it to your home directory.
+
+To download the full dataset to `~/emg_data` for a given task via:
 
 ```bash
-cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz -o emg_data.tar.gz
-mkdir -p ~/emg_data
-tar -xvf emg_data.tar.gz -C ~/emg_data
+cd ~/generic-neuromotor-interface
+./scripts/download_data.sh <TASK_NAME> full_data ~/emg_data
 ```
 
-Alternatively, you can download and extract a smaller version of the dataset with only 3 users per task (3.7 GiB) to quickly get started.
+where `<TASK_NAME>` is one of `discrete_gestures, handwriting, wrist`. Alternatively, you can download and extract a smaller version of the dataset with only 3 participants per task to quickly get started.
 
 ```bash
-cd ~ && curl https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data_small.tar.gz -o emg_data_small.tar.gz
-mkdir -p ~/emg_data
-tar -xvf emg_data_small.tar.gz -C ~/emg_data
+cd ~/generic-neuromotor-interface
+./scripts/download_data.sh <TASK_NAME> small_subset ~/emg_data
+```
+
+To download the models for a task, run:
+
+```bash
+./scripts/download_models.sh <TASK_NAME> ~/emg_models
 ```
 
 ## Setup
-
-> NOTE: The github repo described in this section will be made available upon publication of the paper.
-
-Download the `generic-neuromotor-interface-data` repo and move it to your home directory.
 
 Now setup the conda environment and install the local package.
 
 ```bash
 # Setup and activate the environment
-cd ~/generic-neuromotor-interface-data
+cd ~/generic-neuromotor-interface
 conda env create -f environment.yml
 conda activate neuromotor
 
@@ -48,10 +51,10 @@ pip install -e .
 
 ## Explore the data in a notebook
 
-Use the `loading_emg_data.ipynb` notebook to see how data can be loaded and plotted.
+Use the `explore_data.ipynb` notebook to see how data can be loaded and plotted.
 
 ```bash
-jupyter lab generic_neuromotor_interface/explore_data/explore_data.ipynb
+jupyter lab notebooks/explore_data.ipynb
 ```
 
 ## Train a model
@@ -59,24 +62,34 @@ jupyter lab generic_neuromotor_interface/explore_data/explore_data.ipynb
 Train a model via
 
 ```bash
-python -m generic_neuromotor_interface.train --config-name=TASK_NAME
+python -m generic_neuromotor_interface.train --config-name=<TASK_NAME>
 ```
 
-where `TASK_NAME` is one of `discrete_gestures, handwriting, wrist`.
+Note that this requires downloading the full dataset.
 
-You can also launch a small test run (1 epoch on a small dataset) via:
+You can also launch a small test run (1 epoch on the small dataset) via:
 
 ```bash
-python -m generic_neuromotor_interface.train --config-name=TASK_NAME trainer.max_epochs=1 trainer.accelerator=cpu data_module/data_split=TASK_NAME_mini_split
+python -m generic_neuromotor_interface.train --config-name=<TASK_NAME> trainer.max_epochs=1 trainer.accelerator=cpu data_module/data_split=<TASK_NAME>_mini_split
 ```
+
+## Evaluate a model
+
+Model evaluation on the test set is automatically performed in the training script after training is complete. But if you want to run evaluation ad-hoc on any given trained model, see the `<TASK_NAME>-eval.ipynb` notebooks for code for running inference with each model and run a full evaluation on the test set. These notebooks also provide some visualizations of the model outputs.
 
 ## Dataset details
 
-sEMG is sampled at 2 kHz and is high pass filtered at 40 Hz. Timestamps are expressed in seconds. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `loading_emg_data.ipynb` for more details). Specifics for each task are as follows.
+We are releasing data from 100 data collection participants for each task: 80 train, 10 validation, and 10 test participants. Train participants correspond to those from the 80 participant data point in Figures 2e-g (except for Handwriting, where we randomly selected 80 participants from the 100 participant data point). The 10 validation and train participants were randomly selected from the full set of validation and test participants.
+
+Evaluation metrics may deviate slightly from the published results due to subsampling of the test participants (as there is considerable variability across participants) and variability across model seeds.
+
+Each recording is stored in an .hdf5 file, and there can be multiple recordings per participant. There is also a .csv file for each task (`<TASK_NAME>_corpus.csv`) documenting the recordings included for each participant, in addition to the train / val / test splits.
+
+sEMG is recorded at 2 kHz and is high pass filtered at 40 Hz. Timestamps are expressed in seconds. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `explore_data.ipynb` for more details). Specifics for each task are as follows:
 
 ### Discrete gestures
 
-Datasets include the `name` of each gesture and the `time` at which it occured. Stage names include the types of gestures performed in each stage, as well as the posture (e.g. `static_arm_in_front`, `static_arm_in_lap`, ...)
+Datasets include the `name` of each gesture and the `time` at which it occurred. Stage names include the types of gestures performed in each stage, as well as the posture (e.g. `static_arm_in_front`, `static_arm_in_lap`, ...)
 
 ### Handwriting
 
@@ -84,7 +97,7 @@ Handwriting datasets include the `start` and `end` time of each prompt. `start` 
 
 ### Wrist
 
-Wrist angle datasets also include wrist angles measurements, which are upsampled to match the 2 kHz EMG sampling rate. Stage names include information about the type of task and movement in each stage (e.g. `cursor_to_target_task_horizontal_low_gain_screen_4`, `smooth_pursuit_task_high_gain_1`, ...).
+Wrist angle datasets also include wrist angle measurements, which are upsampled to match the 2 kHz EMG sampling rate. Stage names include information about the type of task and movement in each stage (e.g. `cursor_to_target_task_horizontal_low_gain_screen_4`, `smooth_pursuit_task_high_gain_1`, ...).
 
 ## License
 

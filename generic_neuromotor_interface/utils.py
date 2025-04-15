@@ -87,7 +87,7 @@ def load_splits(
     return splits
 
 
-def _run_bash_command(bash_command, logger: logging.Logger | None = None):
+def _run_bash_command(bash_command: str, logger: logging.Logger | None = None) -> None:
 
     if logger is None:
         logger = logging.getLogger(__name__)

@@ -1,3 +1,10 @@
+# pyre-strict
+# Copyright (c) Meta Platforms, Inc. and its affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 import h5py
 import numpy as np
 import pandas as pd
@@ -10,7 +17,7 @@ class EMGData:
     Not used in model training.
     """
 
-    def __init__(self, hdf5_path: str):
+    def __init__(self, hdf5_path: str) -> None:
         self.hdf5_path = hdf5_path
 
         with h5py.File(self.hdf5_path, "r") as file:
@@ -36,26 +43,26 @@ class EMGData:
 
 
 class DiscreteGesturesData(EMGData):
-    def __init__(self, hdf5_path: str):
+    def __init__(self, hdf5_path: str) -> None:
         super().__init__(hdf5_path)
         assert self.task == "discrete_gestures"
         self.prompts = pd.read_hdf(hdf5_path, "prompts")
 
 
 class HandwritingData(EMGData):
-    def __init__(self, hdf5_path: str):
+    def __init__(self, hdf5_path: str) -> None:
         super().__init__(hdf5_path)
         assert self.task == "handwriting"
         self.prompts = pd.read_hdf(hdf5_path, "prompts")
 
 
 class WristAngleData(EMGData):
-    def __init__(self, hdf5_path: str):
+    def __init__(self, hdf5_path: str) -> None:
         super().__init__(hdf5_path)
         assert self.task == "wrist"
 
     @property
-    def wrist_angles(self):
+    def wrist_angles(self) -> np.ndarray:
         """
         Shape (time, channel), units radians.
 
@@ -75,7 +82,7 @@ LOADERS = {
 }
 
 
-def load_data(hdf5_path: str):
+def load_data(hdf5_path: str) -> EMGData:
     """Load a dataset, automatically determining the correct loader
     for the dataset type."""
     with h5py.File(hdf5_path, "r") as file:

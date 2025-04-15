@@ -11,7 +11,7 @@ from typing import Literal
 
 import torch
 import torch.nn.functional as F
-
+from omegaconf import ListConfig
 from torch import nn
 
 LPadType = int | Literal["none", "steady", "full"]
@@ -44,58 +44,23 @@ class Permute(nn.Module):
         "Get the permute operation to get us back to the original dim order"
         return Permute(from_dims=self.to_dims, to_dims=self.from_dims)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Permute({self.from_dims!r} => {self.to_dims!r})"
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x.permute(self._permute_idx)
 
 
-class ConvNet(nn.Module):
-    """Placeholder convnet."""
+class ReinhardCompression(nn.Module):
+    """Dynamic range compression using the Reinhard operator."""
 
-    def __init__(
-        self,
-        input_channels: int = 16,
-        output_channels: int = 2,
-        num_channels: int = 64,
-        num_layers: int = 3,
-        kernel_width: int = 10,
-        stride: int = 4,
-        sigmoid: bool = False,
-    ):
-        super(ConvNet, self).__init__()
-        self.input_channels = input_channels
-        self.output_channels = output_channels
-        self.num_channels = num_channels
-        self.num_layers = num_layers
-        self.kernel_width = kernel_width
-        self.stride = stride
-        self.sigmoid = sigmoid
+    def __init__(self, range: float, midpoint: float) -> None:
+        super().__init__()
+        self.range = range
+        self.midpoint = midpoint
 
-        # Create convolutions
-        self.conv_layers = nn.ModuleList()
-        in_channels = self.input_channels
-        for i in range(num_layers):
-            out_channels = (
-                self.num_channels if i < num_layers - 1 else self.output_channels
-            )
-            conv_layer = nn.Conv1d(
-                in_channels,
-                out_channels,
-                kernel_size=self.kernel_width,
-                stride=self.stride,
-            )
-            self.conv_layers.append(conv_layer)
-
-            in_channels = out_channels
-            self.conv_layers.append(nn.ReLU())
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass through the network."""
-        for layer in self.conv_layers:
-            x = layer(x)
-        return x if not self.sigmoid else torch.sigmoid(x)
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return self.range * inputs / (self.midpoint + torch.abs(inputs))
 
 
 class DiscreteGesturesArchitecture(nn.Module):
@@ -135,23 +100,33 @@ class DiscreteGesturesArchitecture(nn.Module):
         lstm_hidden_size: int = 512,
         lstm_num_layers: int = 3,
         output_channels: int = 9,
-    ):
-        super(DiscreteGesturesArchitecture, self).__init__()
+    ) -> None:
+        super().__init__()
 
         self.lstm_num_layers = lstm_num_layers
         self.lstm_hidden_size = lstm_hidden_size
         self.left_context = kernel_width - 1
         self.stride = stride
 
-        # Initialize the ConvNet
-        self.conv_net = ConvNet(
-            input_channels=input_channels,
-            output_channels=conv_output_channels,
-            num_channels=num_channels,
-            num_layers=num_conv_layers,
-            kernel_width=kernel_width,
+        # Reinhard Compression
+        self.compression = ReinhardCompression(range=64.0, midpoint=32.0)
+
+        # Conv1d layer
+        self.conv_layer = nn.Conv1d(
+            input_channels,
+            conv_output_channels,
+            kernel_size=kernel_width,
             stride=stride,
         )
+
+        # Relu
+        self.relu = nn.ReLU()
+
+        # Dropout
+        self.dropout = nn.Dropout(p=0.1)
+
+        # Layer normalization
+        self.post_conv_layer_norm = nn.LayerNorm(normalized_shape=conv_output_channels)
 
         # Stacked LSTM layers
         self.lstm = nn.LSTM(
@@ -159,15 +134,16 @@ class DiscreteGesturesArchitecture(nn.Module):
             hidden_size=lstm_hidden_size,
             num_layers=lstm_num_layers,
             batch_first=True,
+            dropout=0.1,
         )
 
         # Layer normalization
-        self.layer_norm = nn.LayerNorm(lstm_hidden_size)
+        self.post_lstm_layer_norm = nn.LayerNorm(normalized_shape=lstm_hidden_size)
 
         # Feedforward projection layer
         self.projection = nn.Linear(lstm_hidden_size, output_channels)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Forward pass through the network.
 
         Parameters
@@ -181,25 +157,35 @@ class DiscreteGesturesArchitecture(nn.Module):
             - Output tensor of shape (batch_size, num_gestures, sequence_length)
         """
 
-        # Pass through ConvNet
-        conv_out = self.conv_net(x)
+        # Reinhard Compression
+        x = self.compression(inputs)
 
-        # Prepare for LSTM input
-        # Convert from (batch_size, conv_output_channels, sequence_length)
-        # to (batch_size, sequence_length, conv_output_channels)
-        lstm_input = conv_out.transpose(1, 2)
+        # Conv1d layer
+        x = self.conv_layer(x)
 
-        # Pass through LSTM with state
-        lstm_out, _ = self.lstm(lstm_input)
+        # Relu
+        x = self.relu(x)
+
+        # Dropout
+        x = self.dropout(x)
 
         # Layer normalization
-        normalized = self.layer_norm(lstm_out)
+        x = x.transpose(
+            1, 2
+        )  # (batch_size, conv_output_channels, sequence_length) -> (batch_size, sequence_length, conv_output_channels)
+        x = self.post_conv_layer_norm(x)
 
-        # Project to final output dimension
-        output = self.projection(normalized)
-        output = output.permute(0, 2, 1)
+        # Stacked LSTM layers
+        x, _ = self.lstm(x)
 
-        return output
+        # Layer normalization
+        x = self.post_lstm_layer_norm(x)
+
+        # Feedforward projection layer
+        x = self.projection(x)
+        x = x.permute(0, 2, 1)
+
+        return x
 
 
 class WristArchitecture(nn.Module):
@@ -212,7 +198,7 @@ class WristArchitecture(nn.Module):
         output_dim: int,
         offsets: Sequence[int] | Sequence[float] = (-1, 0, 1),
         num_adjacent_cov: int = 3,
-    ):
+    ) -> None:
         """
         [RotationInvariantMPFMLP] -> [LSTM] -> [LeakyReLU] -> [Linear]
 
@@ -501,7 +487,7 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
         fft_stride: int,
         fs: float = 2000.0,
         frequency_bins: Sequence[tuple[float, float]] | None = None,
-    ):
+    ) -> None:
         super().__init__()
         if window_length < n_fft:
             raise ValueError("window_length must be greater than n_fft")
@@ -693,7 +679,7 @@ class _AxesMask(nn.Module):
         max_mask_length: int,
         axes: tuple[int, ...],
         mask_value: float = 0.0,
-    ):
+    ) -> None:
         super().__init__()
 
         for axis in axes:
@@ -770,7 +756,7 @@ class MaskAug(nn.Module):
         dims: str = "TF",
         axes_by_coord: dict[str, tuple[int, ...]] | None = None,
         mask_value: float = 0.0,
-    ):
+    ) -> None:
         super().__init__()
 
         self.attrs = {
@@ -987,7 +973,7 @@ class SlicedSequential(nn.Sequential):
         sequence of Ordered dict of `nn.Module` to wrap within.
     """
 
-    def __init__(self, *modules) -> None:
+    def __init__(self, *modules) -> None:  # type: ignore
         super().__init__(*modules)
         self.extra_left_context, self.stride = self.__get_extra_left_context_and_stride(
             list(self)
@@ -1414,20 +1400,22 @@ def ConformerEncoder(
     assert num_layers is not None, "num_layers cannot be inferred, must be specified"
 
     # Convert int specifications to a list of ints, one value per block
-    if not isinstance(attn_window_size, list):
+    if not isinstance(attn_window_size, list) and not isinstance(
+        attn_window_size, ListConfig
+    ):
         # Constant attn window size for all blocks
         attn_window_size = [attn_window_size] * num_layers
-    if not isinstance(kernel_size, list):
+    if not isinstance(kernel_size, list) and not isinstance(kernel_size, ListConfig):
         # Constant conv kernel size all blocks
         kernel_size = [kernel_size] * num_layers
-    if not isinstance(stride, list):
+    if not isinstance(stride, list) and not isinstance(stride, ListConfig):
         # Conv stride only for the final block (with unit stride for all other blocks)
         # to downsample the entire conformer encoder by this factor.
         stride = [1] * (num_layers - 1) + [stride]
-    if not isinstance(conv_lpad, list):
+    if not isinstance(conv_lpad, list) and not isinstance(conv_lpad, ListConfig):
         # Constant conv lpad for all blocks
         conv_lpad = [conv_lpad] * num_layers
-    if not isinstance(attn_lpad, list):
+    if not isinstance(attn_lpad, list) and not isinstance(attn_lpad, ListConfig):
         # Constant attn lpad for all blocks
         attn_lpad = [attn_lpad] * num_layers
 
@@ -1522,7 +1510,7 @@ class HandwritingArchitecture(nn.Module):
         specgram_augment,
         invariance_layer,
         encoder,
-    ):
+    ) -> None:
         super().__init__()
 
         self.num_channels = num_channels

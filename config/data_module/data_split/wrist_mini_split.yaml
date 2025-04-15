@@ -5,11 +5,9 @@
 _target_: generic_neuromotor_interface.data.DataSplit
 
 train:
-  wrist_user_000_dataset_000:
-    - [1714762352.4624736, 1714762412.6277332]
+  wrist_user_000_dataset_000: null # null means use the entire dataset (no partitioning)
 val:
-  wrist_user_001_dataset_000:
-    - [1713470942.784463, 1713470988.1841812]
+  wrist_user_001_dataset_000: null # null means use the entire dataset (no partitioning)
 test:
   wrist_user_002_dataset_000:
-    - [1714744583.9217772, 1714744659.672359]
+    - [1713966045.6641605, 1713966207.9896057]
