@@ -1,6 +1,6 @@
 # A generic noninvasive neuromotor interface for human-computer interaction
 
-[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`Dataset`](https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data/emg_data.tar.gz) ] [ [`BibTeX`](#citation) ]
+[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`BibTeX`](#citation) ]
 
 This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2).
 
@@ -75,7 +75,7 @@ python -m generic_neuromotor_interface.train --config-name=<TASK_NAME> trainer.m
 
 ## Evaluate a model
 
-Model evaluation on the test set is automatically performed in the training script after training is complete. But if you want to run evaluation ad-hoc on any given trained model, see the `<TASK_NAME>-eval.ipynb` notebooks for code for running inference with each model and run a full evaluation on the test set. These notebooks also provide some visualizations of the model outputs.
+Model evaluation on the test set is automatically performed in the training script after training is complete. But if you want to run evaluation ad-hoc on any given trained model, please see the evaluation notebooks provided at `notebooks/<TASK_NAME>-eval.ipynb` for code to run inference with each model and run a full evaluation on the test set. These notebooks also provide some visualizations of the model outputs.
 
 ## Dataset details
 
@@ -83,7 +83,7 @@ We are releasing data from 100 data collection participants for each task: 80 tr
 
 Evaluation metrics may deviate slightly from the published results due to subsampling of the test participants (as there is considerable variability across participants) and variability across model seeds.
 
-Each recording is stored in an .hdf5 file, and there can be multiple recordings per participant. There is also a .csv file for each task (`<TASK_NAME>_corpus.csv`) documenting the recordings included for each participant, in addition to the train / val / test splits.
+Each recording is stored in an `.hdf5` file, and there can be multiple recordings per participant. There is also a `.csv` file for each task (`<TASK_NAME>_corpus.csv`) documenting the recordings included for each participant, in addition to the train / val / test splits. This `.csv` file is downloaded alongside the data using the script described above.
 
 sEMG is recorded at 2 kHz and is high pass filtered at 40 Hz. Timestamps are expressed in seconds. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `explore_data.ipynb` for more details). Specifics for each task are as follows:
 
