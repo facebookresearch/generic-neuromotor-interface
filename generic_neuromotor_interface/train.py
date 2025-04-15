@@ -74,7 +74,7 @@ def train(
         trainer.fit(module, datamodule)
         logger.info("trainer.fit completed!")
 
-        # HACK: rank_zero_only only works for returning 1 object
+        # rank_zero_only only works for returning 1 object
         # So we return a tuple and unpack later if not None
         module_and_results = _load_and_report_best_checkpoint(
             trainer=trainer,
@@ -198,13 +198,13 @@ def _run_validate_and_test(module, datamodule, results, logger, accelerator):
 
 
 @pl.utilities.rank_zero_only
-def _log_pretty_results(results, logger):
+def _log_pretty_results(results, logger) -> None:
     results_formatted_str = pprint.pformat(results, sort_dicts=False)
     logger.info(f"Results: \n{results_formatted_str}")
 
 
 @hydra.main(config_path="../config", config_name="wrist", version_base="1.1")
-def cli(config: DictConfig):
+def cli(config: DictConfig) -> None:
     train(config)
 
 

@@ -7,20 +7,23 @@
 
 import logging
 from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 
 import pytorch_lightning as pl
 import torch
-from torch import nn
-from torchmetrics import MetricCollection
 
-from generic_neuromotor_interface.cler import compute_cler, GestureType
+from generic_neuromotor_interface.cler import compute_cler
+from generic_neuromotor_interface.constants import GestureType
 from generic_neuromotor_interface.handwriting_utils import (
     CharacterErrorRates,
     charset,
     Decoder,
 )
+from torch import nn
+from torchmetrics import MetricCollection
+from torchmetrics.classification import MulticlassAccuracy
 
 log = logging.getLogger(__name__)
 
@@ -248,19 +251,75 @@ class DiscreteGesturesModule(BaseLightningModule):
         network: nn.Module,
         optimizer: torch.optim.Optimizer,
         learning_rate: float,
-        weight_decay: float,
-        lr_scheduler_patience: int,
+        lr_scheduler_milestones: list[int],
         lr_scheduler_factor: float,
-        lr_scheduler_min_lr: float,
-        monitor_metric: str,
+        warmup_start_factor: float,
+        warmup_end_factor: float,
+        warmup_total_epochs: int,
+        gradient_clip_val: float,
     ) -> None:
-
         super().__init__(network=network, optimizer=optimizer)
         self.loss_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
         self.mask_generator = FingerStateMaskGenerator(lpad=0, rpad=7)
+        self.val_accuracy = MulticlassAccuracy(num_classes=9)
+
+    def get_metrics(self, phase: str, domain: str | None = None) -> Any:
+        return self.val_accuracy
+
+    def collect_metric(
+        self,
+        logits: torch.Tensor,
+        target: torch.Tensor,
+        phase: str,
+        domain: str | None = None,
+    ) -> Any:
+
+        device = logits.device
+        w_start = 10  # 50 ms
+        w_end = 30  # 150 ms
+        probs = torch.sigmoid(logits)
+        # Cast label into int format
+        y = target.to(torch.int32)
+        y_class = []
+        y_hat_class = []
+
+        for batch in range(y.shape[0]):
+            y_diff = torch.diff(y[batch], axis=0)
+            indices = torch.argwhere(y_diff == 1)
+            for index in indices:
+                start = index[0] - w_start
+                end = index[0] + w_end
+                start = max(start, 0)  # Edge case
+                end = min(end, y.shape[1])  # Edge case
+                y_hat = probs[batch, start:end, :]
+                flattened_index = (
+                    y_hat.argmax()
+                )  # Get the index of max probability of the predicted class
+                rows, cols = y_hat.shape
+                col = flattened_index % cols
+                y_hat_class.append(col)
+                y_class.append(index[1])
+
+        if len(y_class) > 0:
+            y_class = torch.stack(y_class).long().to(device)
+            y_hat_class = torch.stack(y_hat_class).long().to(device)
+        else:
+            y_class = torch.zeros(1, dtype=torch.int64, device=device)
+            y_hat_class = torch.zeros(1, dtype=torch.int64, device=device)
+
+        metric_value = self.get_metrics(phase, domain).update(y_hat_class, y_class)
+
+        self.log(
+            f"{phase}_accuracy",
+            self.val_accuracy,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
+        return metric_value
 
     def _step(self, batch: Mapping[str, torch.Tensor], stage: str = "train") -> float:
-
         # Extract data
         emg = batch["emg"]
         targets = batch["targets"]
@@ -279,6 +338,13 @@ class DiscreteGesturesModule(BaseLightningModule):
         loss = (loss * mask).sum() / mask.sum()
         self.log(f"{stage}_loss", loss, sync_dist=True)
 
+        if stage == "val":
+            self.collect_metric(
+                preds.permute(0, 2, 1),  # Swap class and time dimensions
+                targets.permute(0, 2, 1),  # Swap class and time dimensions
+                phase=stage,
+            )
+
         if stage == "test":
             prompts = batch["prompts"][0]
             times = batch["timestamps"][0]
@@ -291,30 +357,39 @@ class DiscreteGesturesModule(BaseLightningModule):
         return loss
 
     def configure_optimizers(self):
-        """Configure optimizer with learning rate scheduler that decays on plateau."""
+        """Configure optimizer with warm-up and MultiStepLR scheduler."""
         optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.hparams.learning_rate,
-            weight_decay=self.hparams.weight_decay,
         )
 
-        scheduler = {
-            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer,
-                mode="min",
-                factor=self.hparams.lr_scheduler_factor,
-                patience=self.hparams.lr_scheduler_patience,
-                min_lr=self.hparams.lr_scheduler_min_lr,
-                verbose=True,
-            ),
-            "monitor": self.hparams.monitor_metric,
-            "interval": "epoch",
-            "frequency": 1,
-        }
+        # Linear warm-up scheduler
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=self.hparams.warmup_start_factor,
+            end_factor=self.hparams.warmup_end_factor,
+            total_iters=self.hparams.warmup_total_epochs,
+        )
+
+        # MultiStepLR scheduler for after warm-up
+        multistep_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=self.hparams.lr_scheduler_milestones,
+            gamma=self.hparams.lr_scheduler_factor,
+        )
+        # Chain the schedulers: first warm-up, then multistep
+        scheduler = torch.optim.lr_scheduler.ChainedScheduler(
+            [warmup_scheduler, multistep_scheduler]
+        )
 
         return {
             "optimizer": optimizer,
-            "lr_scheduler": scheduler,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
+            "gradient_clip_val": self.hparams.gradient_clip_val,
         }
 
 
@@ -391,12 +466,6 @@ class HandwritingModule(BaseLightningModule):
                 prediction=self.decoder._charset.labels_to_str(predictions[i]),
                 target=self.decoder._charset.labels_to_str(target),
             )
-
-            if i == N - 1:
-                print(
-                    f"pred: {self.decoder._charset.labels_to_str(predictions[i])}, "
-                    f"target: {self.decoder._charset.labels_to_str(target)}"
-                )
 
         return loss
 

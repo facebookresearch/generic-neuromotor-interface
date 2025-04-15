@@ -14,16 +14,17 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
-from typing_extensions import Self
 
 from generic_neuromotor_interface.constants import Task
 from generic_neuromotor_interface.transforms import Transform
+from typing_extensions import Self
 
 
 # List of start and end times within a dataset on which to train.
 # Partitions correspond to times where the user is performing behaviors
 # on which we want to train the model.
-Partitions = list[tuple[float, float]]
+# If None, the entire dataset is used.
+Partitions = list[tuple[float, float]] | None
 
 
 @dataclass
@@ -36,7 +37,9 @@ class DataSplit:
     test: dict[str, Partitions | None]
 
     @classmethod
-    def from_csv(cls, csv_filename: str) -> "DataSplit":
+    def from_csv(
+        cls, csv_filename: str, pool_test_partitions: bool = False
+    ) -> "DataSplit":
         """Create splits from csv file with (dataset, start, end, split) columns."""
 
         df = pd.read_csv(csv_filename)
@@ -44,10 +47,22 @@ class DataSplit:
 
         for split in ["train", "val", "test"]:
             splits[split] = {}
-            for row in df[df["split"] == split].itertuples():
-                if row.dataset not in splits[split]:
-                    splits[split][row.dataset] = []
-                splits[split][row.dataset].append((row.start, row.end))
+            splits = {}
+            for split in ["train", "val", "test"]:
+                splits[split] = {}
+                for dataset in df[df["split"] == split]["dataset"].unique():
+                    dataset_rows = df[
+                        (df["split"] == split) & (df["dataset"] == dataset)
+                    ]
+
+                    if split == "test" and pool_test_partitions:
+                        first_start = dataset_rows["start"].min()
+                        last_end = dataset_rows["end"].max()
+                        splits[split][dataset] = [(first_start, last_end)]
+                    else:
+                        splits[split][dataset] = []
+                        for row in dataset_rows.itertuples():
+                            splits[split][dataset].append((row.start, row.end))
 
         return cls(**splits)
 

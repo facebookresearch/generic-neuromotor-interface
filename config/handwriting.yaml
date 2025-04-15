@@ -7,25 +7,21 @@ defaults:
 # Data settings
 data_location: ~/emg_data
 
-# Dag settings
-local: false
-name: handwriting-train-dag
-
 # Train settings
 seed: 42
 train: True # Whether to run training
-eval: True # Whether to run evaluation on validation and test splits
+eval: False # Whether to run evaluation on validation and test splits
 
 # Number of nodes to train in DDP (1 node = 1 machine (e.g. G4))
 # So 2 nodes ==> 2xG4 ==> 2x8 GPUs ==> 16 GPUs
 num_nodes: 1
 
 trainer:
-  max_epochs: 400
+  max_epochs: 200
   strategy: ddp
   accelerator: auto
   gradient_clip_val: 0.1
-  gradient_clip_algorithm: "norm"
+  gradient_clip_algorithm: 'norm'
   accumulate_grad_batches: 2
 
 # Callback settings
@@ -39,9 +35,6 @@ callbacks:
     mode: ${monitor_mode}
     save_last: True
     verbose: True
-  - _target_: pytorch_lightning.callbacks.EarlyStopping
-    monitor: val_loss
-    patience: 50
 
 # Customize hydra directory outputs
 # see: https://hydra.cc/docs/0.11/configure_hydra/workdir/

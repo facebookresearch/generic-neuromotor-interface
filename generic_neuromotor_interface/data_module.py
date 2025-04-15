@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import ConcatDataset, DataLoader, default_collate
 
 from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 from generic_neuromotor_interface.data import (
@@ -25,6 +24,7 @@ from generic_neuromotor_interface.utils import (
     get_full_dataset_path,
     handwriting_collate,
 )
+from torch.utils.data import ConcatDataset, DataLoader, default_collate
 
 
 def custom_collate_fn(batch):

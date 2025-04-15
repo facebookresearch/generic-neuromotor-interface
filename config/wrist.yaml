@@ -7,10 +7,6 @@ defaults:
 # Data settings
 data_location: ~/emg_data
 
-# Dag settings
-local: false
-name: wrist-train-dag
-
 # Train settings
 seed: 42
 train: True # Whether to run training
