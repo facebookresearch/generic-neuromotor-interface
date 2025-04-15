@@ -6,10 +6,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import unittest
-from typing import Any
 
 import torch
 from generic_neuromotor_interface.networks import (
+    DiscreteGesturesArchitecture,
     MultivariatePowerFrequencyFeatures,
     RotationInvariantMPFMLP,
     WristArchitecture,
@@ -96,7 +96,6 @@ WRIST_MODEL_MPF_PARAMS = {
     "stride": 40,
     "n_fft": 64,
     "fft_stride": 10,
-    "frequency_bins": DEFAULT_MPF_FREQUENCY_BINS,
 }
 
 HANDWRITING_MODEL_MPF_PARAMS = {
@@ -104,7 +103,6 @@ HANDWRITING_MODEL_MPF_PARAMS = {
     "stride": 40,
     "n_fft": 64,
     "fft_stride": 10,
-    "frequency_bins": DEFAULT_MPF_FREQUENCY_BINS,
 }
 
 
@@ -119,7 +117,7 @@ class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
         self,
         batch_size: int,
         num_channels: int,
-        mpf_parameters: dict[str, Any],
+        mpf_parameters: dict[str, int],
     ) -> None:
 
         # assemble module
@@ -136,3 +134,33 @@ class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             data = torch.randn(batch_size, num_channels, module.left_context)
             module(data)
+
+
+class TestDiscreteGesturesArchitecture(unittest.TestCase):
+
+    def test_forward(self) -> None:
+
+        # set some constants
+        batch_size = 5
+        num_channels = 16
+        num_tsteps = 500
+
+        # sample random data
+        data = torch.randn(batch_size, num_channels, num_tsteps)
+
+        # assemble network
+        network = DiscreteGesturesArchitecture(input_channels=num_channels)
+
+        # check that the number of parameters is exactly equal to how many
+        # we had when running the scaling plots experiments
+        num_params = sum(p.numel() for p in network.parameters())
+        self.assertEqual(num_params, 6482953)
+
+        # run network forward pass
+        output = network(data)
+
+        # check output shape
+        output_num_tsteps = len(
+            torch.arange(num_tsteps)[network.left_context :: network.stride]
+        )
+        self.assertEqual(output.shape, (batch_size, 9, output_num_tsteps))
