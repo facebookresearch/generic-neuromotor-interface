@@ -5,13 +5,14 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import enum
 from collections import Counter
 from typing import Literal
 
 import numba as nb
 import numpy as np
 import pandas as pd
+
+from generic_neuromotor_interface.constants import GestureType
 from numpy.typing import NDArray
 
 THRESHOLD = 0.35
@@ -22,20 +23,6 @@ TOLERANCE = (-0.05, 0.25)
 LEFT = 1
 RIGHT = 2
 BOTH = 3
-
-
-class GestureType(enum.Enum):
-    """Enumeration of gesture types."""
-
-    index_press = 0
-    index_release = 1
-    middle_press = 2
-    middle_release = 3
-    thumb_click = 4
-    thumb_down = 5
-    thumb_in = 6
-    thumb_out = 7
-    thumb_up = 8
 
 
 def map_logits_to_gestures(logits: NDArray, times: NDArray) -> dict[str, NDArray]:
@@ -119,42 +106,6 @@ def _debounce_events(
         result.append((name, time))
 
     return result
-
-
-# def _debounce_events(
-#     events: list[tuple[str, float]], debounce: float
-# ) -> list[tuple[str, float]]:
-#     """
-#     Apply debouncing to a list of events.
-
-#     Parameters
-#     ----------
-#     events : list[tuple[str, float]]
-#         List of (gesture_name, timestamp) tuples to process
-#     debounce : float
-#         Minimum time (in seconds) between consecutive events of the same type
-
-#     Returns
-#     -------
-#     List[Tuple[str, float]]
-#         Events after debouncing is applied
-#     """
-#     if not events:
-#         return []
-
-#     result = [events[0]]  # Always keep the first event
-
-#     for name, time in events[1:]:
-#         prev_name, prev_time = result[-1]
-
-#         # Skip event only if it's the same type as previous AND too close in time
-#         if name == prev_name and time - prev_time < debounce:
-#             continue
-
-#         # Otherwise, add the event
-#         result.append((name, time))
-
-#     return result
 
 
 def postprocess_logits(
@@ -529,61 +480,16 @@ def get_matched_indices(
     )
 
 
-def get_event_confusion_matrix(
-    labels: pd.DataFrame,
-    predictions: pd.DataFrame,
-    tolerance: tuple[float, float] = TOLERANCE,
-) -> Counter:
-    """
-    Compute confusion matrix from gesture event predictions and labels.
-
-    Parameters
-    ----------
-    predictions : pd.DataFrame
-        The predictions from the model you wish to benchmark.
-    labels : pd.DataFrame
-        The labels for the entire dataset.
-    tolerance : Tuple[float, float], default=(-0.05, 0.25)
-        The latency bounds for matching predictions to labels
-
-    Returns
-    -------
-    confusion_matrix : Counter
-        A counter mapping (ground_truth, prediction) pairs to their occurrence count
-    """
-    # Get matched indices between labels and predictions using the aligner
-    padded_labels = pad_dataframe(labels, tolerance[0], tolerance[1])
-    matches = get_matched_indices(padded_labels, predictions)
-
-    # Get confusion matrix
-    confusion_matrix: Counter = Counter()
-
-    for left_idx, right_idx in matches:
-        if left_idx is None:
-            pass
-        elif right_idx is None:
-            confusion_matrix[labels["name"].iloc[left_idx], None] += 1
-        else:
-            confusion_matrix[
-                labels["name"].iloc[left_idx], predictions["name"].iloc[right_idx]
-            ] += 1
-
-    return confusion_matrix
-
-
-def compute_cler(
+def compute_confusion_matrix(
     logits: NDArray,
     times: NDArray,
     prompts_df: pd.DataFrame,
     threshold: float = THRESHOLD,
     debounce: float = DEBOUNCE,
     tolerance: tuple[float, float] = TOLERANCE,
-) -> float:
+) -> Counter:
     """
-    Compute Classification Error Rate (CLER) from model logits and ground truth labels.
-
-    CLER is the proportion of events detected by the model that were assigned
-    the incorrect gesture, in a balanced average across all gestures.
+    Compute confusion matrix from model logits and ground truth labels.
 
     Parameters
     ----------
@@ -602,8 +508,8 @@ def compute_cler(
 
     Returns
     -------
-    float
-        The Classification Error Rate (CLER)
+    Counter
+        Confusion matrix with counts of each confusion
     """
     # Process the logits into predictions
     logits_dict = map_logits_to_gestures(logits, times)
@@ -668,8 +574,50 @@ def compute_cler(
                 filtered_predictions["name"].iloc[right_idx],
             ] += 1
 
+    return confusion_matrix
+
+
+def compute_cler(
+    logits: NDArray,
+    times: NDArray,
+    prompts_df: pd.DataFrame,
+    threshold: float = THRESHOLD,
+    debounce: float = DEBOUNCE,
+    tolerance: tuple[float, float] = TOLERANCE,
+) -> float:
+    """
+    Compute Classification Error Rate (CLER) from model logits and ground truth labels.
+
+    CLER is the proportion of events detected by the model that were assigned
+    the incorrect gesture, in a balanced average across all gestures.
+
+    Parameters
+    ----------
+    logits : NDArray
+        Model output logits of shape (num_gestures, sequence_length)
+    times : NDArray
+        Timestamps corresponding to each prediction
+    prompts_df : pd.DataFrame
+        Ground truth labels with at least 'name' and 'time' columns
+    threshold : float, default=THRESHOLD
+        Threshold value for detecting gesture events
+    debounce : float, default=DEBOUNCE
+        Debounce time to apply to events (in seconds)
+    tolerance : Tuple[float, float], default=TOLERANCE
+        Time window tolerance for matching predictions to labels
+
+    Returns
+    -------
+    float
+        The Classification Error Rate (CLER)
+    """
+
+    confusion_matrix = compute_confusion_matrix(
+        logits, times, prompts_df, threshold, debounce, tolerance
+    )
+
     # Calculate the classification error rate
-    all_gestures = {gt for (gt, pred) in confusion_matrix.keys() if gt is not None}
+    all_gestures = {gt for gt, _ in confusion_matrix.keys() if gt is not None}
 
     error_rates = []
 
@@ -677,7 +625,7 @@ def compute_cler(
         correct = confusion_matrix.get((gesture, gesture), 0)
 
         total = 0
-        for pred in [None] + list(all_gestures):
+        for pred in list(all_gestures):
             total += confusion_matrix.get((gesture, pred), 0)
 
         if total > 0:

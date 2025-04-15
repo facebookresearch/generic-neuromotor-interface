@@ -7,11 +7,11 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import cached_property
 
 import numpy as np
 import pandas as pd
 import torch
+from generic_neuromotor_interface.constants import GestureType
 
 from generic_neuromotor_interface.handwriting_utils import charset
 
@@ -58,15 +58,8 @@ class DiscreteGesturesTransform:
     Convolve gesture times with a step function to create targets.
     """
 
-    pulse_durations: dict[str, tuple[float, float]]
-
-    @cached_property
-    def gestures(self):
-        return list(self.pulse_durations.keys())
-
-    @cached_property
-    def gesture_to_index(self):
-        return {gesture: i for i, gesture in enumerate(self.gestures)}
+    # Pulse extends from (time + pulse_window[0] to time + pulse_window[1])
+    pulse_window: list[float, float]  # Seconds
 
     def __call__(
         self, timeseries: np.ndarray, prompts: pd.DataFrame | None
@@ -77,13 +70,17 @@ class DiscreteGesturesTransform:
         # Get gesture prompts within the timeseries window
         tlim = (timeseries["time"][0], timeseries["time"][-1])
         prompts = prompts[prompts["time"].between(*tlim)]
-        prompts = prompts[prompts["name"].isin(self.gestures)]
+        prompts = prompts[
+            prompts["name"].isin([gesture.name for gesture in GestureType])
+        ]
 
         # Convert to binary pulse matrix
         targets = self.gesture_times_to_targets(
             timeseries["time"],
             prompts["time"],
-            prompts["name"].map(self.gesture_to_index),
+            prompts["name"].map(
+                {gesture.name: gesture.value for gesture in GestureType}
+            ),
         )
 
         return {
@@ -95,7 +92,7 @@ class DiscreteGesturesTransform:
         self,
         times: np.ndarray,
         event_start_times: np.ndarray,
-        event_ids: list[int],
+        event_ids: pd.Series,
     ) -> torch.Tensor:
         """
         Convert gesture times to a (num_events, time) binary pulse matrix with 1.0 for
@@ -108,15 +105,30 @@ class DiscreteGesturesTransform:
         duration = times[-1] - times[0]
         sampling_freq = int(num_timesteps / duration)
 
+        event_ids = event_ids.to_numpy()
+
         # Indices of each event in the pulse matrix
         event_time_indices = np.searchsorted(times, event_start_times)
-        pulse = torch.zeros(len(self.gestures), num_timesteps, dtype=torch.float32)
+        pulse = torch.zeros(len(GestureType), num_timesteps, dtype=torch.float32)
 
-        for event_start, event_id in zip(event_time_indices, event_ids):
-            event = self.gestures[event_id]
-            start = event_start + self.pulse_durations[event][0] * sampling_freq
-            end = event_start + self.pulse_durations[event][1] * sampling_freq
-            pulse[event_id, int(start) : int(end)] = 1.0
+        valid_events = (event_time_indices > 0) & (event_time_indices < num_timesteps)
+        valid_indices = np.where(valid_events)[0]
+
+        for idx in valid_indices:
+            event_start = event_time_indices[idx]
+            event_id = event_ids[idx]
+
+            if event_id >= len(GestureType) or event_id < 0:
+                continue
+
+            start_offset = int(self.pulse_window[0] * sampling_freq)
+            end_offset = int(self.pulse_window[1] * sampling_freq)
+
+            start_idx = max(0, event_start + start_offset)
+            end_idx = min(num_timesteps, event_start + end_offset)
+
+            if start_idx < end_idx:
+                pulse[event_id, start_idx:end_idx] = 1.0
 
         return pulse
 
@@ -125,7 +137,7 @@ class DiscreteGesturesTransform:
 class HandwritingTransform:
     """Extract emg and prompts."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.charset = charset()
 
     def __call__(

@@ -139,12 +139,13 @@ class CharacterSet:
     # Map of unicode chars to pynput key representations.
     UNICHAR_TO_KEY: ClassVar[Mapping[UniChar, KeyChar]] = {
         " ": "Key.space",
+        "\u2192": "_",  # Explicit space (to ignore)
         "\r": "Key.enter",
         "\u21E5": "Key.tab",  # ⇥
         "\u21E7": "Key.shift",  # ⇧
         "\u2303": "Key.ctrl",  # ⌃
         "\u2318": "Key.cmd",  # ⌘
-        "\u232B": "Key.backspace",  # ⌫
+        "\u2190": "Key.backspace",  # ⌫
         "\u23CE": "Key.enter",  # ⏎
         "\u2191": "Key.shift_l",  # ↑ -- straight
         "\u21E1": "Key.shift_r",  # ⇡ -- dotted
