@@ -96,9 +96,6 @@ class WindowedEmgDataModule(pl.LightningDataModule):
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
         An optional function that takes an EMG tensor and returns
         an augmented EMG tensor. See augmentation.py.
-    emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
-        An optional function that takes an EMG tensor and returns
-        an augmented EMG tensor. See augmentation.py.
     """
     def __init__(
         self,

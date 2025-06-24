@@ -193,7 +193,6 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         If True, randomly jitter the offset of each window.
         Use this for training time variability.
     """
-
     def __init__(
         self,
         hdf5_path: Path,
