@@ -64,7 +64,7 @@ class WindowedEmgDataModule(pl.LightningDataModule):
 
     Automatically takes care of applying random jitter to the windows
     used by the train dataloader, but not the validation and test dataloaders.
-    
+
     The test dataloader is also enforced to return data over the full test set
     partitions, rather than over short windows within each partition. This is
     to emulate online application of these models, where inference is applied
