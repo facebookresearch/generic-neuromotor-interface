@@ -177,7 +177,8 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
     transform : Transform
         A composed sequence of transforms that takes
         a window/slice of `EmgRecording` in the form of a numpy
-        structured array and returns a `torch.Tensor` instance.
+        structured array and a pandas DataFrame with prompt labels
+        and times, and returns a `torch.Tensor` instance.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
         An optional function that takes an EMG tensor and returns
         an augmented EMG tensor. See augmentation.py.
@@ -192,7 +193,6 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         If True, randomly jitter the offset of each window.
         Use this for training time variability.
     """
-
     def __init__(
         self,
         hdf5_path: Path,

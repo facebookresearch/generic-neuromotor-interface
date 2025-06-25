@@ -59,6 +59,44 @@ def custom_collate_fn(batch):
 
 
 class WindowedEmgDataModule(pl.LightningDataModule):
+    """A PyTorch LightningDataModule for constructing dataloaders to
+    assemble batches of strided windows of contiguous sEMG
+
+    Automatically takes care of applying random jitter to the windows
+    used by the train dataloader, but not the validation and test dataloaders.
+
+    The test dataloader is also enforced to return data over the full test set
+    partitions, rather than over short windows within each partition. This is
+    to emulate online application of these models, where inference is applied
+    over the long timescale of an HCI task.
+
+    Parameters
+    ----------
+    window_length : int
+        Number of contiguous samples in each sample in the batch.
+    stride : int | None
+        Stride between consecutive windows from the same recording.
+        Specify None to set this to window_length, in which case
+        there will be no overlap between consecutive windows.
+    batch_size : int
+        The number of samples per batch.
+    num_workers : int
+        The number of subprocesses to use for data loading.
+    data_split : DataSplit
+        A dataclass containing a dictionary of datasets and
+        corresponding partitions for the train, val, and test
+        splits.
+    transform : Transform
+        A composed sequence of transforms that takes
+        a window/slice of `EmgRecording` in the form of a numpy
+        structured array and a pandas DataFrame with prompt labels
+        and times, and returns a `torch.Tensor` instance.
+    data_location : str
+        Path to where the dataset files are stored.
+    emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
+        An optional function that takes an EMG tensor and returns
+        an augmented EMG tensor. See augmentation.py.
+    """
     def __init__(
         self,
         window_length: int,
