@@ -15,14 +15,16 @@ The dataset contains sEMG recordings from 100 participants in each of the three 
 
 Download the `generic-neuromotor-interface` repo and move it to your home directory.
 
-To download the full dataset to `~/emg_data` for a given task via:
+To download the full dataset to `~/emg_data` for a given task, run:
 
 ```bash
 cd ~/generic-neuromotor-interface
 ./scripts/download_data.sh <TASK_NAME> full_data ~/emg_data
 ```
 
-where `<TASK_NAME>` is one of `discrete_gestures, handwriting, wrist`. Alternatively, you can download and extract a smaller version of the dataset with only 3 participants per task to quickly get started.
+where `<TASK_NAME>` is one of `discrete_gestures, handwriting, wrist`.
+
+Alternatively, you can download and extract a smaller version of the dataset with only 3 participants per task to quickly get started:
 
 ```bash
 cd ~/generic-neuromotor-interface
@@ -45,7 +47,7 @@ cd ~/generic-neuromotor-interface
 conda env create -f environment.yml
 conda activate neuromotor
 
-# Install the generic-neuromotor-inferface-data package
+# Install this repository as a package
 pip install -e .
 ```
 
@@ -65,13 +67,15 @@ Train a model via
 python -m generic_neuromotor_interface.train --config-name=<TASK_NAME>
 ```
 
-Note that this requires downloading the full dataset.
+Note that this requires downloading the `full_data` dataset as described earlier.
 
-You can also launch a small test run (1 epoch on the small dataset) via:
+You can also launch a small test run (1 epoch on the `small_subset` dataset) via:
 
 ```bash
 python -m generic_neuromotor_interface.train --config-name=<TASK_NAME> trainer.max_epochs=1 trainer.accelerator=cpu data_module/data_split=<TASK_NAME>_mini_split
 ```
+
+After training, the model checkpoint will be available at `logs/.../lightning_logs/.../checkpoints/`, and the model config will be available at `logs/.../hydra_configs/config.yaml`.
 
 ## Evaluate a model
 
