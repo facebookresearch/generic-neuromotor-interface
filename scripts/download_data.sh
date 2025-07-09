@@ -15,6 +15,13 @@ TASK_NAME=$1  # handwriting, discrete_gestures, or wrist
 DATASET=$2  # full_data or small_subset
 EMG_DATA_DIR=$3  # The directory where the data will be stored
 
+# Check that TASK_NAME is one of the expected values
+if [ "$TASK_NAME" != "handwriting" ] && [ "$TASK_NAME" != "discrete_gestures" ] && [ "$TASK_NAME" != "wrist" ]; then
+    echo "Invalid TASK_NAME value: $TASK_NAME"
+    echo "Expected 'handwriting', 'discrete_gestures', or 'wrist'"
+    exit 1
+fi
+
 # Check that DATASET is one of the expected values
 if [ "$DATASET" != "full_data" ] && [ "$DATASET" != "small_subset" ]; then
     echo "Invalid DATASET value: $DATASET"

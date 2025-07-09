@@ -14,6 +14,13 @@ fi
 TASK_NAME=$1  # handwriting, discrete_gestures, or wrist
 MODEL_DIR=$2  # The directory where the model will be stored
 
+# Check that TASK_NAME is one of the expected values
+if [ "$TASK_NAME" != "handwriting" ] && [ "$TASK_NAME" != "discrete_gestures" ] && [ "$TASK_NAME" != "wrist" ]; then
+    echo "Invalid TASK_NAME value: $TASK_NAME"
+    echo "Expected 'handwriting', 'discrete_gestures', or 'wrist'"
+    exit 1
+fi
+
 URL="https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data"
 
 echo "Downloading the pretrained model..."
