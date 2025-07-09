@@ -28,3 +28,5 @@ mkdir -p "$MODEL_DIR"
 mkdir -p "$MODEL_DIR/$TASK_NAME"
 curl "$URL/checkpoints/$TASK_NAME/$TASK_NAME.tar" -o "$MODEL_DIR/$TASK_NAME/$TASK_NAME.tar"
 tar -xvf "$MODEL_DIR/$TASK_NAME/$TASK_NAME.tar" -C "$MODEL_DIR/$TASK_NAME/"
+
+echo "Done"
