@@ -328,7 +328,6 @@ class RotationInvariantMPFMLP(nn.Module):
             raise ValueError("hidden_dims must be non-empty")
         self.offsets = offsets
         self.activation = nn.LeakyReLU()
-        self.permute = Permute("NTWPCD", "NTPWCD")
         self.vectorize = VectorizeSymmetricMatrix(
             num_channels=num_channels,
             num_adjacent_cov=num_adjacent_cov,
@@ -615,7 +614,7 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
 
     @staticmethod
     def _compute_strided_cross_spectral_density(inputs: torch.Tensor) -> torch.Tensor:
-        """Compute cross-spectral density of strided windows of spectrogram features
+        """Compute cross-spectral density of strided windows of spectrogram features.
 
         Assumes inputs of shape
             (..., channels, time)
@@ -628,16 +627,16 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
         input_dims = inputs.shape
         num_channels, window_size = input_dims[-2:]
 
-        # flatten over batch, freq, and window dims
+        # Flatten over batch, frequency, and window dimensions to process all at once
         outputs = inputs.reshape(
             -1, num_channels, window_size
         )  # (batch_size * windows * freqs, channels, window_size)
 
-        # calculate cross-spectral density
+        # Calculate cross-spectral density:
         outputs = (outputs @ outputs.transpose(-2, -1).conj()) / window_size
         outputs = outputs.abs().pow(2)
 
-        # reshape to get back batch, freq, and window dims
+        # Reshape to restore the original batch, frequency, and window dimensions
         outputs = outputs.reshape(*input_dims[:-2], num_channels, num_channels)
 
         return outputs
@@ -1524,7 +1523,7 @@ class HandwritingArchitecture(nn.Module):
         self.slice = slice(self.conformer.extra_left_context, -1, self.conformer.stride)
 
     def forward(self, inputs):
-        x = self.featurizer(inputs)
+                x = self.featurizer(inputs)
         x = self.specaug(x)
         x = self.rotation_invariant_mlp(x)
         x = x.transpose(-1, -2)
