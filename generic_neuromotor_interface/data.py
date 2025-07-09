@@ -307,7 +307,7 @@ class HandwritingEmgDataset(torch.utils.data.Dataset):
         self.concatenate_prompts = concatenate_prompts
         self.min_duration_s = min_duration_s
 
-                self.prompts = self.emg_recording.prompts
+        self.prompts = self.emg_recording.prompts
         self.prompts["prompt_len"] = self.prompts.end - self.prompts.start
 
         if self.concatenate_prompts:
