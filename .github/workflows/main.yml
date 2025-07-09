@@ -1,28 +1,39 @@
-name: Python Package using Conda
+name: Neuromotor CI
 
 on: [push]
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Setup Conda
-      uses: conda-incubator/setup-miniconda@v2.2.0
+      uses: conda-incubator/setup-miniconda@v3.0.4
       with:
         auto-update-conda: true
-        python-version: '3.12'
+        python-version: "3.12"
         miniconda-version: "latest"
         activate-environment: neuromotor
         environment-file: environment.yml
 
-    - name: Install package
+    - name: Install local package
+      shell: bash -el {0}
       run: |
-        pip install -e .  # install local package
+        conda activate neuromotor
+        pip install -e .
+
+    - name: Run pre-commit checks
+      shell: bash -el {0}
+      run: |
+        conda activate neuromotor
+        pre-commit run --all-files
 
     - name: Lint with flake8
+      shell: bash -el {0}
       run: |
         pip install flake8
         # stop the build if there are Python syntax errors or undefined names
@@ -30,8 +41,8 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Test with pytest
+    - name: Run tests
       shell: bash -el {0}
       run: |
-        pip install pytest
-        pytest generic_neuromotor_interface
+        conda activate neuromotor
+        pytest
