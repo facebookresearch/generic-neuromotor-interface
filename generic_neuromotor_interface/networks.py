@@ -1523,7 +1523,7 @@ class HandwritingArchitecture(nn.Module):
         self.slice = slice(self.conformer.extra_left_context, -1, self.conformer.stride)
 
     def forward(self, inputs):
-                x = self.featurizer(inputs)
+        x = self.featurizer(inputs)
         x = self.specaug(x)
         x = self.rotation_invariant_mlp(x)
         x = x.transpose(-1, -2)
