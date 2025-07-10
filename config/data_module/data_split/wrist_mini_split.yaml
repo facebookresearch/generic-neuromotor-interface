@@ -9,5 +9,4 @@ train:
 val:
   wrist_user_001_dataset_000: null # null means use the entire dataset (no partitioning)
 test:
-  wrist_user_002_dataset_000:
-    - [1713966045.6641605, 1713966207.9896057]
+  wrist_user_002_dataset_000: null # null means use the entire dataset (no partitioning)
