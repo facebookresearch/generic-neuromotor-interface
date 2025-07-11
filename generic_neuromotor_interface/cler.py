@@ -25,7 +25,10 @@ RIGHT = 2
 BOTH = 3
 
 
-def map_gestures_to_probabilities(probabilities: NDArray, times: NDArray) -> dict[str, NDArray]:
+def map_gestures_to_probabilities(
+    probabilities: NDArray,
+    times: NDArray
+) -> dict[str, NDArray]:
     """
     Assembles a mapping from each gesture type to its corresponding
     probabilities from the model outputs, plus a "time" key containing
@@ -47,9 +50,11 @@ def map_gestures_to_probabilities(probabilities: NDArray, times: NDArray) -> dic
         key containing the timestamps corresponding to each
         prediction.
     """
-    if probabilities.shape[0] != len(GestureType):
+    num_probs = probabilities.shape[0]
+    num_gestures = len(GestureType)
+    if num_probs != num_gestures:
         raise ValueError(
-            f"Expected probabilities array with {len(GestureType)} rows, got {probabilities.shape[0]}"
+            f"Expected probabilities array with {num_gestures} rows, got {num_probs}"
         )
 
     gesture_probabilities = {}
@@ -584,7 +589,8 @@ def compute_cler(
     tolerance: tuple[float, float] = TOLERANCE,
 ) -> float:
     """
-    Compute Classification Error Rate (CLER) from model probabilities and ground truth labels.
+    Compute Classification Error Rate (CLER) from model probabilities and
+    ground truth labels.
 
     CLER is the proportion of events detected by the model that were assigned
     the incorrect gesture, in a balanced average across all gestures.
