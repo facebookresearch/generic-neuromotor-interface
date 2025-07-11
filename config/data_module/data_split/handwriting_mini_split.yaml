@@ -1,5 +1,4 @@
 # One dataset each for train, val, and test
-# One partition from each dataset
 # Useful for quick testing
 
 _target_: generic_neuromotor_interface.data.DataSplit

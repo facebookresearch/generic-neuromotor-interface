@@ -53,7 +53,7 @@ pip install -e .
 
 ## Explore the data in a notebook
 
-Use the `explore_data.ipynb` notebook to see how data can be loaded and plotted.
+Use the `explore_data.ipynb` notebook to see how data can be loaded and plotted:
 
 ```bash
 jupyter lab notebooks/explore_data.ipynb
@@ -61,7 +61,7 @@ jupyter lab notebooks/explore_data.ipynb
 
 ## Train a model
 
-Train a model via
+Train a model via:
 
 ```bash
 python -m generic_neuromotor_interface.train --config-name=<TASK_NAME>
