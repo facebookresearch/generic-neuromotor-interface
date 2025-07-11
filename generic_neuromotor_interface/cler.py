@@ -28,7 +28,7 @@ BOTH = 3
 def map_gestures_to_probabilities(probabilities: NDArray, times: NDArray) -> dict[str, NDArray]:
     """
     Assembles a mapping from each gesture type to its corresponding
-    probabilities from the model output array, plus a "time" key containing
+    probabilities from the model outputs, plus a "time" key containing
     the timestamps associated with each output.
 
     Parameters
@@ -36,7 +36,7 @@ def map_gestures_to_probabilities(probabilities: NDArray, times: NDArray) -> dic
     probabilities : NDArray
         Model output array of shape (num_gestures, sequence_length)
     times : NDArray
-        Timestamps corresponding to each model output sample, of shape
+        Timestamps corresponding to each probability, of shape
         (sequence_length,)
 
     Returns
@@ -490,7 +490,6 @@ def get_matched_indices(
 
 def compute_confusion_matrix(
     events: pd.DataFrame,
-    times: NDArray,
     prompts_df: pd.DataFrame,
     tolerance: tuple[float, float],
 ) -> Counter:
@@ -611,7 +610,7 @@ def compute_cler(
         The Classification Error Rate (CLER)
     """
 
-    # Extract the probabilities of each gesture from the model output array
+    # Extract the probabilities of each gesture
     gesture_probabilities = map_gestures_to_probabilities(probabilities, times)
 
     # Detect discrete gesture events from predicted probabilities
