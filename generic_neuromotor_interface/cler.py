@@ -25,39 +25,43 @@ RIGHT = 2
 BOTH = 3
 
 
-def map_logits_to_gestures(logits: NDArray, times: NDArray) -> dict[str, NDArray]:
+def map_gestures_to_probabilities(probabilities: NDArray, times: NDArray) -> dict[str, NDArray]:
     """
-    Maps each dimension of the logits array to its corresponding gesture type
-    and includes timing information.
+    Assembles a mapping from each gesture type to its corresponding
+    probabilities from the model output array, plus a "time" key containing
+    the timestamps associated with each output.
 
     Parameters
     ----------
-    logits : NDArray
-        Input array of shape (num_gestures, sequence_length)
+    probabilities : NDArray
+        Model output array of shape (num_gestures, sequence_length)
     times : NDArray
-        Array of timestamps corresponding to each sequence point
+        Timestamps corresponding to each model output sample, of shape
+        (sequence_length,)
 
     Returns
     -------
-    gesture_logits : Dict[str, NDArray]
-        Dictionary mapping each GestureType to its corresponding logits values
-        and 'times' to the timing information
+    gesture_probabilities : dict[str, NDArray]
+        Dictionary mapping gesture names to their predicted
+        probabilities. Keys are gesture names, plus "time"
+        key containing the timestamps corresponding to each
+        prediction.
     """
-    if logits.shape[0] != len(GestureType):
+    if probabilities.shape[0] != len(GestureType):
         raise ValueError(
-            f"Expected logits array with {len(GestureType)} rows, got {logits.shape[0]}"
+            f"Expected probabilities array with {len(GestureType)} rows, got {probabilities.shape[0]}"
         )
 
-    gesture_logits = {}
+    gesture_probabilities = {}
     for gesture in GestureType:
-        gesture_logits[gesture.name] = logits[gesture.value]
+        gesture_probabilities[gesture.name] = probabilities[gesture.value]
 
-    gesture_logits["time"] = times
+    gesture_probabilities["time"] = times
 
-    return gesture_logits
+    return gesture_probabilities
 
 
-def _debounce_events(
+def debounce_events(
     events: list[tuple[str, float]], debounce: float
 ) -> list[tuple[str, float]]:
     """
@@ -108,27 +112,30 @@ def _debounce_events(
     return result
 
 
-def postprocess_logits(
-    logits: dict[str, NDArray],
+def detect_gesture_events(
+    gesture_probabilities: dict[str, NDArray],
     threshold: float,
     debounce: float,
 ) -> pd.DataFrame:
     """
-    Postprocess logits into a set of concrete gesture events with timestamps.
+    Identify threshold crossings of gesture probabilties to detect
+    discrete gesture events and their associated timestamps.
 
     Parameters
     ----------
-    logits : Dict[str, NDArray]
-        Dictionary containing logits for each gesture type and timestamps
-        Keys are gesture names or 'times' for timing information
+    gesture_probabilities : dict[str, NDArray]
+        Dictionary mapping gesture names to their predicted
+        probabilities. Keys are gesture names, plus "time"
+        key containing the timestamps corresponding to each
+        prediction.
     threshold : float
-        A scalar threshold to use for detecting events
+        An event is detected if the probability rises above this threshold
     debounce : float
-        The debounce time (in seconds) to apply to events
+        Minimum time (in seconds) between consecutive events
 
     Returns
     -------
-    predictions : pd.DataFrame
+    detected_events : pd.DataFrame
         DataFrame containing detected events with columns:
         - start: start time of the event
         - end: end time of the event
@@ -137,37 +144,38 @@ def postprocess_logits(
     """
     # 1. Thresholded Peak Detection
     events: list[tuple[str, float]] = []
-    times = logits["time"]
+    times = gesture_probabilities.pop("time")
 
-    for name, logit in logits.items():
+    for name, probs in gesture_probabilities.items():
         if name == "time":
             continue
 
-        assert logit.ndim == 1
+        assert probs.ndim == 1
 
         # If there's a threshold crossing on the first timestep, count it
-        if logit[0] >= threshold:
+        if probs[0] >= threshold:
             events.append((name, times[0]))
 
-        # Find times[i] where logit[i-1] < threshold and logit[i] >= threshold
+        # Find times[i] where probs[i-1] < threshold and probs[i] >= threshold
         threshold_crossings = times[1:][
-            (logit[1:] >= threshold) & (logit[:-1] < threshold)
+            (probs[1:] >= threshold) & (probs[:-1] < threshold)
         ]
         events.extend((name, t) for t in threshold_crossings)
 
     events = sorted(events, key=lambda x: x[1])
 
-    # 2. Apply debounce
-    events = _debounce_events(events, debounce=debounce)
+    # 2. Apply debouncing
+    events = debounce_events(events, debounce=debounce)
 
-    predictions = pd.DataFrame(
+    # Assemble into a dataframe
+    detected_events = pd.DataFrame(
         [
             {"start": time, "end": time, "time": time, "name": name}
             for name, time in events
         ]
     )
 
-    return predictions
+    return detected_events
 
 
 def pad_dataframe(df: pd.DataFrame, start_pad: float, end_pad: float) -> pd.DataFrame:
@@ -481,28 +489,24 @@ def get_matched_indices(
 
 
 def compute_confusion_matrix(
-    logits: NDArray,
+    events: pd.DataFrame,
     times: NDArray,
     prompts_df: pd.DataFrame,
-    threshold: float = THRESHOLD,
-    debounce: float = DEBOUNCE,
-    tolerance: tuple[float, float] = TOLERANCE,
+    tolerance: tuple[float, float],
 ) -> Counter:
     """
-    Compute confusion matrix from model logits and ground truth labels.
+    Compute confusion matrix from detected events and ground truth labels.
 
     Parameters
     ----------
-    logits : NDArray
-        Model output logits of shape (num_gestures, sequence_length)
-    times : NDArray
-        Timestamps corresponding to each prediction
+    events : pd.DataFrame
+        DataFrame containing detected events with columns:
+        - start: start time of the event
+        - end: end time of the event
+        - name: name of the gesture
+        - time: time of the event
     prompts_df : pd.DataFrame
         Ground truth labels with at least 'name' and 'time' columns
-    threshold : float, default=THRESHOLD
-        Threshold value for detecting gesture events
-    debounce : float, default=DEBOUNCE
-        Debounce time to apply to events (in seconds)
     tolerance : Tuple[float, float], default=TOLERANCE
         Time window tolerance for matching predictions to labels
 
@@ -511,25 +515,20 @@ def compute_confusion_matrix(
     Counter
         Confusion matrix with counts of each confusion
     """
-    # Process the logits into predictions
-    logits_dict = map_logits_to_gestures(logits, times)
-    predictions = postprocess_logits(
-        logits_dict, threshold=threshold, debounce=debounce
-    )
 
     # Prepare the labels DataFrame for alignment
     labels = prompts_df.copy()
     labels["start"] = labels["time"]
     labels["end"] = labels["time"]
 
-    # First Needleman-Wunsch: aligning predictions with labels
+    # First Needleman-Wunsch: aligning predicted events with labels
     padded_labels = pad_dataframe(labels, tolerance[0], tolerance[1])
-    matches = get_matched_indices(predictions, padded_labels)
+    matches = get_matched_indices(events, padded_labels)
 
     keep = []
     state: Literal["NEUTRAL", "INDEX", "MIDDLE"] = "NEUTRAL"
     gt_names = labels["name"].to_list()
-    pred_names = predictions["name"].to_list()
+    pred_names = events["name"].to_list()
     for pred, gt in matches:
         # Check if the prediction should be kept
         if pred is not None:
@@ -556,12 +555,12 @@ def compute_confusion_matrix(
             else:
                 state = "NEUTRAL"
 
-    filtered_predictions = predictions.iloc[keep].reset_index(drop=True)
+    filtered_events = events.iloc[keep].reset_index(drop=True)
 
-    # Second Needleman-Wunsch: aligning filtered predictions with labels
-    filtered_matches = get_matched_indices(padded_labels, filtered_predictions)
+    # Second Needleman-Wunsch: aligning filtered events with labels
+    filtered_matches = get_matched_indices(padded_labels, filtered_events)
 
-    # Calculate confusion matrix with the filtered predictions
+    # Calculate confusion matrix with the filtered events
     confusion_matrix: Counter = Counter()
     for left_idx, right_idx in filtered_matches:
         if left_idx is None:
@@ -571,14 +570,14 @@ def compute_confusion_matrix(
         else:
             confusion_matrix[
                 labels["name"].iloc[left_idx],
-                filtered_predictions["name"].iloc[right_idx],
+                filtered_events["name"].iloc[right_idx],
             ] += 1
 
     return confusion_matrix
 
 
 def compute_cler(
-    logits: NDArray,
+    probabilities: NDArray,
     times: NDArray,
     prompts_df: pd.DataFrame,
     threshold: float = THRESHOLD,
@@ -586,15 +585,15 @@ def compute_cler(
     tolerance: tuple[float, float] = TOLERANCE,
 ) -> float:
     """
-    Compute Classification Error Rate (CLER) from model logits and ground truth labels.
+    Compute Classification Error Rate (CLER) from model probabilities and ground truth labels.
 
     CLER is the proportion of events detected by the model that were assigned
     the incorrect gesture, in a balanced average across all gestures.
 
     Parameters
     ----------
-    logits : NDArray
-        Model output logits of shape (num_gestures, sequence_length)
+    probabilities : NDArray
+        Model output probabilities of shape (num_gestures, sequence_length)
     times : NDArray
         Timestamps corresponding to each prediction
     prompts_df : pd.DataFrame
@@ -602,7 +601,7 @@ def compute_cler(
     threshold : float, default=THRESHOLD
         Threshold value for detecting gesture events
     debounce : float, default=DEBOUNCE
-        Debounce time to apply to events (in seconds)
+        Minimum time (in seconds) between consecutive events
     tolerance : Tuple[float, float], default=TOLERANCE
         Time window tolerance for matching predictions to labels
 
@@ -612,8 +611,17 @@ def compute_cler(
         The Classification Error Rate (CLER)
     """
 
+    # Extract the probabilities of each gesture from the model output array
+    gesture_probabilities = map_gestures_to_probabilities(probabilities, times)
+
+    # Detect discrete gesture events from predicted probabilities
+    detected_events = detect_gesture_events(
+        gesture_probabilities, threshold=threshold, debounce=debounce
+    )
+
+    # Calculate confusion matrix
     confusion_matrix = compute_confusion_matrix(
-        logits, times, prompts_df, threshold, debounce, tolerance
+        detected_events, prompts_df, tolerance
     )
 
     # Calculate the classification error rate

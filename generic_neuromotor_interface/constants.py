@@ -18,7 +18,8 @@ EMG_SAMPLE_RATE = 2000  # Hz
 
 
 class GestureType(enum.Enum):
-    """Enumeration of discrete gesture types."""
+    """Discrete gesture types and their corresponding indices
+    in the discrete gestures decoder output"""
 
     index_press = 0
     index_release = 1
