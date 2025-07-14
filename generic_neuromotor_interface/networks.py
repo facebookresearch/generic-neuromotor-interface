@@ -73,10 +73,6 @@ class DiscreteGesturesArchitecture(nn.Module):
         Number of input channels for the ConvNet
     conv_output_channels : int
         Number of output channels from the ConvNet
-    num_channels : int
-        Number of intermediate channels in ConvNet layers
-    num_conv_layers : int
-        Number of convolutional layers in the ConvNet
     kernel_width : int
         Width of the convolutional kernels
     stride : int
@@ -93,8 +89,6 @@ class DiscreteGesturesArchitecture(nn.Module):
         self,
         input_channels: int = 16,
         conv_output_channels: int = 512,
-        num_channels: int = 512,
-        num_conv_layers: int = 1,
         kernel_width: int = 21,
         stride: int = 10,
         lstm_hidden_size: int = 512,
@@ -148,7 +142,7 @@ class DiscreteGesturesArchitecture(nn.Module):
 
         Parameters
         ----------
-        x : torch.Tensor
+        inputs : torch.Tensor
             Input tensor of shape (batch_size, input_channels, sequence_length)
 
         Returns
