@@ -8,6 +8,14 @@ The dataset contains sEMG recordings from 100 participants in each of the three 
 
 ![Figure 1 from the paper](images/figure_1.png)
 
+## Data
+
+| Task              | Participants | Hours |
+|-------------------|--------------|-------|
+| Wrist             | 100          | 74    |
+| Discrete gestures | 100          | 63    |
+| Handwriting       | 100          | 126   |
+
 ## Download the data and models
 
 > NOTE: The github repo described in this section will be made available upon publication of the paper.
