@@ -49,7 +49,6 @@ def generate_hydra_config_from_overrides(
     config_name: str = "base",
     overrides: list[str] | None = None,
 ) -> DictConfig:
-
     if overrides is None:
         overrides = []
 
@@ -88,7 +87,6 @@ def load_splits(
 
 
 def _run_bash_command(bash_command: str, logger: logging.Logger | None = None) -> None:
-
     if logger is None:
         logger = logging.getLogger(__name__)
 
@@ -108,7 +106,6 @@ def _run_bash_command(bash_command: str, logger: logging.Logger | None = None) -
 
 
 def handwriting_collate(samples: list[dict[str, torch.Tensor]]):
-
     emg_batch = [sample["emg"] for sample in samples if sample]  # [(T, ...)]
     prompt_batch = [sample["prompts"] for sample in samples if sample]  # [(T)]
 

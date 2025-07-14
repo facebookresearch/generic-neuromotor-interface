@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import ConcatDataset, DataLoader, default_collate
 
 from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 from generic_neuromotor_interface.data import (
@@ -25,6 +24,7 @@ from generic_neuromotor_interface.utils import (
     get_full_dataset_path,
     handwriting_collate,
 )
+from torch.utils.data import ConcatDataset, DataLoader, default_collate
 
 
 def custom_collate_fn(batch):
@@ -97,6 +97,7 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         An optional function that takes an EMG tensor and returns
         an augmented EMG tensor. See augmentation.py.
     """
+
     def __init__(
         self,
         window_length: int,
@@ -123,16 +124,13 @@ class WindowedEmgDataModule(pl.LightningDataModule):
     def _make_dataset(
         self, partition_dict: dict[str, Partitions | None], stage: str
     ) -> ConcatDataset:
-
         datasets = []
         for dataset, partitions in partition_dict.items():
-
             # A single partition that spans the entire dataset
             if partitions is None:
                 partitions = [(-np.inf, np.inf)]
 
             for start, end in partitions:
-
                 # Skip partitions that are too short
                 partition_samples = (end - start) * EMG_SAMPLE_RATE
                 if partition_samples < self.window_length:
@@ -222,10 +220,8 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
     def _make_dataset(
         self, partition_dict: dict[str, Partitions | None], stage: str
     ) -> ConcatDataset:
-
         datasets = []
         for dataset, partitions in partition_dict.items():
-
             # A single partition that spans the entire dataset
             if partitions is None:
                 partitions = [(-np.inf, np.inf)]

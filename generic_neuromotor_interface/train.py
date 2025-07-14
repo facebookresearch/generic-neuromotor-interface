@@ -25,7 +25,6 @@ def train(
     scratch_dir: str | None = None,
     logger: logging.Logger | None = None,
 ) -> dict[str, Any]:
-
     if logger is None:
         logger = logging.getLogger(__name__)
 
@@ -68,7 +67,6 @@ def train(
 
     results: dict = {}
     if config.train:
-
         # Train
         logger.info("Running trainer.fit...")
         trainer.fit(module, datamodule)
@@ -107,7 +105,6 @@ def evaluate_from_checkpoint(
     checkpoint_path: str,
     logger: logging.Logger | None = None,
 ) -> dict[str, Any]:
-
     if logger is None:
         logger = logging.getLogger(__name__)
 
@@ -151,7 +148,6 @@ def evaluate_from_checkpoint(
 def _load_and_report_best_checkpoint(
     trainer, module, results, logger
 ) -> pl.LightningModule:
-
     logger.info("Loading best checkpoint...")
 
     checkpoint_callback = trainer.checkpoint_callback
@@ -175,7 +171,6 @@ def _load_and_report_best_checkpoint(
 
 @pl.utilities.rank_zero_only
 def _run_validate_and_test(module, datamodule, results, logger, accelerator):
-
     logger.info("Running validate and test w/ devices=1 only...")
 
     trainer = Trainer(

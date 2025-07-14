@@ -70,7 +70,6 @@ class EmgRecording:
     def __init__(
         self, hdf5_path: Path, start_time: float = -np.inf, end_time: float = np.inf
     ) -> None:
-
         self.hdf5_path = hdf5_path
         self.start_time = start_time
         self.end_time = end_time
@@ -362,7 +361,6 @@ class HandwritingEmgDataset(torch.utils.data.Dataset):
         return self._emg_recording
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor] | None:
-
         prompt_row = self.prompts.iloc[idx]
 
         start_idx, end_idx = self.emg_recording.get_idx_slice(

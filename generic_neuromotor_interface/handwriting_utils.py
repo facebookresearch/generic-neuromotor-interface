@@ -141,14 +141,14 @@ class CharacterSet:
         " ": "Key.space",
         "\u2192": "_",  # Explicit space (to ignore)
         "\r": "Key.enter",
-        "\u21E5": "Key.tab",  # ⇥
-        "\u21E7": "Key.shift",  # ⇧
+        "\u21e5": "Key.tab",  # ⇥
+        "\u21e7": "Key.shift",  # ⇧
         "\u2303": "Key.ctrl",  # ⌃
         "\u2318": "Key.cmd",  # ⌘
         "\u2190": "Key.backspace",  # ⌫
-        "\u23CE": "Key.enter",  # ⏎
+        "\u23ce": "Key.enter",  # ⏎
         "\u2191": "Key.shift_l",  # ↑ -- straight
-        "\u21E1": "Key.shift_r",  # ⇡ -- dotted
+        "\u21e1": "Key.shift_r",  # ⇡ -- dotted
         "🤏": "Key.pause",  # Treat pinch gesture as Pause as a placeholder
     }
 

@@ -15,7 +15,6 @@ from hypothesis import given, strategies as st
 
 
 class TestWristModule(unittest.TestCase):
-
     @staticmethod
     def build_module(
         num_channels: int,

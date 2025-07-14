@@ -32,7 +32,6 @@ class BaseLightningModule(pl.LightningModule):
     """Child classes should implement _step."""
 
     def __init__(self, network: nn.Module, optimizer: torch.optim.Optimizer) -> None:
-
         super().__init__()
         self.save_hyperparameters()
         self.network = network
@@ -64,7 +63,6 @@ class WristModule(BaseLightningModule):
     def _step(
         self, batch: Mapping[str, torch.Tensor], stage: str = "train"
     ) -> torch.Tensor:
-
         # Extract data
         emg = batch["emg"]
         wrist_angles = batch["wrist_angles"]
@@ -277,7 +275,6 @@ class DiscreteGesturesModule(BaseLightningModule):
         phase: str,
         domain: str | None = None,
     ) -> Any:
-
         device = logits.device
         w_start = 10  # 50 ms at 200 Hz
         w_end = 30  # 150 ms at 200 Hz
@@ -438,7 +435,8 @@ class HandwritingModule(BaseLightningModule):
 
         emissions, slc = self.forward(emg)
         emission_lengths = self.network.compute_time_downsampling(
-            emg_lengths=emg_lengths, slc=slc  # (N,)
+            emg_lengths=emg_lengths,
+            slc=slc,  # (N,)
         )
         loss = self.ctc_loss(
             log_probs=emissions.movedim(

@@ -20,7 +20,6 @@ from hypothesis import given, strategies as st
 
 
 class TestRotationInvariantMPFMLP(unittest.TestCase):
-
     @given(st.integers(min_value=1, max_value=16))
     def test_invalid_adjacent_cov(
         self,
@@ -47,9 +46,7 @@ class TestRotationInvariantMPFMLP(unittest.TestCase):
 
 
 class TestRotationInvariantLSTM(unittest.TestCase):
-
     def test_forward(self) -> None:
-
         # set some constants
         batch_size = 5
         num_channels = 16
@@ -108,7 +105,6 @@ HANDWRITING_MODEL_MPF_PARAMS = {
 
 
 class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
-
     @given(
         st.integers(min_value=1, max_value=5),
         st.integers(min_value=1, max_value=16),
@@ -120,7 +116,6 @@ class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
         num_channels: int,
         mpf_parameters: dict[str, Any],
     ) -> None:
-
         # assemble module
         module = MultivariatePowerFrequencyFeatures(**mpf_parameters)
 
@@ -138,9 +133,7 @@ class TestMultivariatePowerFrequencyFeatures(unittest.TestCase):
 
 
 class TestDiscreteGesturesArchitecture(unittest.TestCase):
-
     def test_forward(self) -> None:
-
         # set some constants
         batch_size = 5
         num_channels = 16

@@ -18,6 +18,5 @@ class RotationAugmentation:
     rotation: int = 1
 
     def __call__(self, data: torch.Tensor) -> torch.Tensor:
-
         rotation = np.random.choice(np.arange(-self.rotation, self.rotation + 1))
         return torch.roll(data, rotation, dims=-1)

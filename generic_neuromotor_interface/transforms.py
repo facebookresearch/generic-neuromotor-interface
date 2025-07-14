@@ -22,7 +22,6 @@ Transform = Callable[[np.ndarray, pd.DataFrame | None], torch.Tensor]
 
 
 def _to_tensor(data: np.ndarray | list[Any]) -> torch.Tensor:
-
     if isinstance(data, np.ndarray):
         return torch.from_numpy(data).float()
     elif isinstance(data, list):
@@ -66,7 +65,6 @@ class DiscreteGesturesTransform:
     def __call__(
         self, timeseries: np.ndarray, prompts: pd.DataFrame | None
     ) -> torch.Tensor:
-
         assert prompts is not None
 
         # Get gesture prompts within the timeseries window

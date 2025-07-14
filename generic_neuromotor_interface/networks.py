@@ -316,7 +316,6 @@ class RotationInvariantMPFMLP(nn.Module):
         offsets: Sequence[int] | Sequence[float] = (-1, 0, 1),
         num_adjacent_cov: int = 3,
     ) -> None:
-
         super().__init__()
         if len(hidden_dims) == 0:
             raise ValueError("hidden_dims must be non-empty")
@@ -337,7 +336,6 @@ class RotationInvariantMPFMLP(nn.Module):
             dim = hidden_dim
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-
         # Rotate inputs by each offset
         x = torch.stack(
             [
@@ -515,7 +513,6 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
         self.left_context = self.window_length - self.fft_stride + self.n_fft - 1
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-
         batch_size, num_channels, _ = inputs.shape
         num_freqs = self.n_fft // 2 + 1
 
@@ -589,7 +586,6 @@ class MultivariatePowerFrequencyFeatures(nn.Module):
         fs: float,
         frequency_bins: Sequence[tuple[float, float]],
     ) -> torch.Tensor:
-
         # get STFT frequencies
         freqs_hz = torch.fft.fftfreq(n_fft, d=1.0 / fs)[: (n_fft // 2 + 1)].abs()
 
@@ -886,7 +882,6 @@ class Window(nn.Module):
         self.kernel_size = kernel_size
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-
         if self.state_size > 0:
             # Pad the input
             buffered = F.pad(inputs, (0, 0, self.state_size, 0), "constant", 0)
@@ -936,7 +931,6 @@ class Residual(nn.Module):
         self,
         inputs: torch.Tensor,
     ) -> torch.Tensor:
-
         residual = inputs[:, self.extra_left_context :: self.stride]
 
         x = self.child(inputs)
@@ -1220,7 +1214,6 @@ class MultiHeadAttention(nn.Module):
         self,
         inputs: torch.Tensor,
     ) -> torch.Tensor:
-
         windows = self._windows(inputs)
         query, key, value = self._attn_params(windows)
 
@@ -1269,7 +1262,6 @@ class Conv1d(nn.Module):
         self,
         inputs: torch.Tensor,
     ) -> torch.Tensor:
-
         inputs = self.permute_forward(inputs)
         outputs = self.net(inputs)
         outputs = self.permute_back(outputs)
@@ -1528,7 +1520,6 @@ class HandwritingArchitecture(nn.Module):
     def compute_time_downsampling(
         self, emg_lengths: torch.Tensor, slc: slice
     ) -> Sequence[int]:
-
         # Featurization
         emg_lengths = self.featurizer.compute_time_downsampling(emg_lengths)
 
