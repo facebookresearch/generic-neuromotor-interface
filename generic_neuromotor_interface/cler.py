@@ -123,7 +123,7 @@ def detect_gesture_events(
     debounce: float,
 ) -> pd.DataFrame:
     """
-    Identify threshold crossings of gesture probabilties to detect
+    Identify threshold crossings of gesture probabilities to detect
     discrete gesture events and their associated timestamps.
 
     Parameters
@@ -149,7 +149,7 @@ def detect_gesture_events(
     """
     # 1. Thresholded Peak Detection
     events: list[tuple[str, float]] = []
-    times = gesture_probabilities.pop("time")
+    times = gesture_probabilities["time"]
 
     for name, probs in gesture_probabilities.items():
         if name == "time":
