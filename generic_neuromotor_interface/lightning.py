@@ -111,9 +111,9 @@ class FingerStateMaskGenerator(torch.nn.Module):
     Parameters
     ----------
     lpad : int
-        Time bin padding before the press event
+        Time step padding before the press event
     rpad : int
-        Time bin padding after the release event
+        Time step padding after the release event
     """
 
     def __init__(
@@ -262,7 +262,9 @@ class DiscreteGesturesModule(BaseLightningModule):
     ) -> None:
         super().__init__(network=network, optimizer=optimizer)
         self.loss_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
-        self.mask_generator = FingerStateMaskGenerator(lpad=0, rpad=7)
+        self.mask_generator = FingerStateMaskGenerator(
+            lpad=0, rpad=7
+        )  # 40 ms at 200 Hz
         self.val_accuracy = MulticlassAccuracy(num_classes=9)
 
     def get_metrics(self, phase: str, domain: str | None = None) -> Any:
@@ -277,8 +279,8 @@ class DiscreteGesturesModule(BaseLightningModule):
     ) -> Any:
 
         device = logits.device
-        w_start = 10  # 50 ms
-        w_end = 30  # 150 ms
+        w_start = 10  # 50 ms at 200 Hz
+        w_end = 30  # 150 ms at 200 Hz
         probs = torch.sigmoid(logits)
         # Cast label into int format
         y = target.to(torch.int32)
