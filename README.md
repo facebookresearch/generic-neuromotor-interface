@@ -75,7 +75,7 @@ You can also launch a small test run (1 epoch on the `small_subset` dataset) via
 python -m generic_neuromotor_interface.train --config-name=<TASK_NAME> trainer.max_epochs=1 trainer.accelerator=cpu data_module/data_split=<TASK_NAME>_mini_split
 ```
 
-After training, the model checkpoint will be available at `logs/.../lightning_logs/.../checkpoints/`, and the model config will be available at `logs/.../hydra_configs/config.yaml`.
+After training, the model checkpoint will be available at `./logs/<DATE>/<TIME>/lightning_logs/<VERSION>/checkpoints/`, and the model config will be available at `./logs/<DATE>/<TIME>/hydra_configs/config.yaml`.
 
 ## Evaluate a model
 
