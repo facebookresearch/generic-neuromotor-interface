@@ -17,7 +17,7 @@ def plot_emg(
     normalize_time: bool = True,
     ax: plt.Axes | None = None,
 ) -> None:
-    """Plt EMG over time, with each channel vertically offset.
+    """Plot EMG over time, with each channel vertically offset.
 
     Parameters
     ----------
