@@ -48,22 +48,16 @@ class DataSplit:
 
         for split in ["train", "val", "test"]:
             splits[split] = {}
-            splits = {}
-            for split in ["train", "val", "test"]:
-                splits[split] = {}
-                for dataset in df[df["split"] == split]["dataset"].unique():
-                    dataset_rows = df[
-                        (df["split"] == split) & (df["dataset"] == dataset)
-                    ]
-
-                    if split == "test" and pool_test_partitions:
-                        first_start = dataset_rows["start"].min()
-                        last_end = dataset_rows["end"].max()
-                        splits[split][dataset] = [(first_start, last_end)]
-                    else:
-                        splits[split][dataset] = []
-                        for row in dataset_rows.itertuples():
-                            splits[split][dataset].append((row.start, row.end))
+            for dataset in df[df["split"] == split]["dataset"].unique():
+                dataset_rows = df[(df["split"] == split) & (df["dataset"] == dataset)]
+                if split == "test" and pool_test_partitions:
+                    first_start = dataset_rows["start"].min()
+                    last_end = dataset_rows["end"].max()
+                    splits[split][dataset] = [(first_start, last_end)]
+                else:
+                    splits[split][dataset] = []
+                    for row in dataset_rows.itertuples():
+                        splits[split][dataset].append((row.start, row.end))
 
         return cls(**splits)
 
@@ -193,6 +187,7 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         If True, randomly jitter the offset of each window.
         Use this for training time variability.
     """
+
     def __init__(
         self,
         hdf5_path: Path,
