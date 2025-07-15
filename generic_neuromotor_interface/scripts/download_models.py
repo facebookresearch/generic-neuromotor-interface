@@ -42,20 +42,26 @@ def download_models(task_name, model_dir):
     return task_dir
 
 
-@click.command()
-@click.argument(
-    "task_name", type=click.Choice(["handwriting", "discrete_gestures", "wrist"])
+@click.command(help="Download pretrained models for neuromotor interface tasks.")
+@click.option(
+    "--task",
+    "task_name",
+    type=click.Choice(["handwriting", "discrete_gestures", "wrist"]),
+    required=True,
+    help="Name of the task to download models for.",
 )
-@click.argument("model_dir", type=click.Path())
-def main(task_name, model_dir):
+@click.option(
+    "--output-dir",
+    "output_dir",
+    type=click.Path(),
+    required=True,
+    help="Directory where the model will be stored.",
+)
+def main(task_name, output_dir):
     """
     Download pretrained models for neuromotor interface tasks.
-
-    TASK_NAME: Name of the task (handwriting, discrete_gestures, or wrist)
-
-    MODEL_DIR: Directory where the model will be stored
     """
-    download_models(task_name, model_dir)
+    download_models(task_name, output_dir)
 
 
 if __name__ == "__main__":
