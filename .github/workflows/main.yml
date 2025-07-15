@@ -1,12 +1,13 @@
 name: Neuromotor CI
 
-on: [push]
+on:
+  push:
+  pull_request:
+    types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 5
 
     steps:
     - uses: actions/checkout@v3
@@ -36,9 +37,7 @@ jobs:
       shell: bash -el {0}
       run: |
         pip install flake8
-        # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Run tests
@@ -46,3 +45,12 @@ jobs:
       run: |
         conda activate neuromotor
         pytest
+
+    # Only run integration tests on pull requests
+    - name: Run integration tests
+      if: github.event_name == 'pull_request'
+      # if: github.event_name == 'pull_request' && github.event.action == 'ready_for_review'
+      shell: bash -el {0}
+      run: |
+        conda activate neuromotor
+        pytest -m integration
