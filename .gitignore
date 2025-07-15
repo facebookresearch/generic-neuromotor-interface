@@ -166,3 +166,4 @@ cython_debug/
 # Repo Specific
 logs/
 data/
+lightning_logs/
