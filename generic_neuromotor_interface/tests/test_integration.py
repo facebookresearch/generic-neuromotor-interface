@@ -174,8 +174,7 @@ def task_model_fixture(request, temp_model_dir):
     [
         ("wrist", "wrist"),
         ("handwriting", "handwriting"),
-        # TODO: temporarily disabled due to CLER edge case
-        # ("discrete_gestures", "discrete_gestures"),
+        ("discrete_gestures", "discrete_gestures"),
     ],
     indirect=True,
 )
@@ -197,8 +196,7 @@ def test_task_evaluate_subset_cpu(task_model_fixture, task_dataset_dir_fixture):
     [
         "wrist",
         "handwriting",
-        # TODO: temporarily disabled due to CLER edge case
-        # "discrete_gestures",
+        "discrete_gestures",
     ],
     indirect=True,
 )

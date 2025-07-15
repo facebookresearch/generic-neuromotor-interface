@@ -178,6 +178,17 @@ def detect_gesture_events(
         ]
     )
 
+    # if empty, we still want to preserve same columns + types
+    if detected_events.empty:
+        detected_events = pd.DataFrame(
+            {
+                "name": pd.Series(dtype="object"),
+                "time": pd.Series(dtype="float64"),
+                "start": pd.Series(dtype="float64"),
+                "end": pd.Series(dtype="float64"),
+            }
+        )
+
     return detected_events
 
 
