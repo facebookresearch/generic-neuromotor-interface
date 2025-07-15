@@ -10,10 +10,9 @@ The dataset contains sEMG recordings from 100 participants in each of the three 
 
 ## Download the data and models
 
-> NOTE: The github repo described in this section will be made available upon publication of the paper.
-> The instructions on this page are for MacOS.
+> NOTE: The instructions on this page are for MacOS.
 
-Download the `generic-neuromotor-interface` repo and move it to your home directory.
+Clone the `generic-neuromotor-interface` repo and move it to your home directory.
 
 To download the full dataset to `~/emg_data` for a given task, run:
 
