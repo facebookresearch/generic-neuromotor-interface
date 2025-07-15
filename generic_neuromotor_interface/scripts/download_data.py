@@ -15,7 +15,7 @@ from generic_neuromotor_interface.download_utils import (
 )
 
 
-def download_data(task_name, dataset, emg_data_dir):
+def download_data(task_name: str, dataset: str, emg_data_dir: str):
     """
     Download data for a specific task and dataset.
 
@@ -56,23 +56,35 @@ def download_data(task_name, dataset, emg_data_dir):
     return data_dir
 
 
-@click.command()
-@click.argument(
-    "task_name", type=click.Choice(["handwriting", "discrete_gestures", "wrist"])
+@click.command(help="Download data for neuromotor interface tasks.")
+@click.option(
+    "--task",
+    "task_name",
+    type=click.Choice(["handwriting", "discrete_gestures", "wrist"]),
+    required=True,
+    help="Name of the task to download data for.",
 )
-@click.argument("dataset", type=click.Choice(["full_data", "small_subset"]))
-@click.argument("emg_data_dir", type=click.Path())
-def main(task_name, dataset, emg_data_dir):
+@click.option(
+    "--dataset-type",
+    type=click.Choice(["full_data", "small_subset"]),
+    required=True,
+    help=(
+        "Whether to download the full dataset or a subset. "
+        "Use 'small_subset' for testing / exploration."
+    ),
+)
+@click.option(
+    "--output-dir",
+    "output_dir",
+    type=click.Path(),
+    required=True,
+    help="Directory where the downloaded data will be stored.",
+)
+def main(task_name, dataset_type, output_dir):
     """
     Download data for neuromotor interface tasks.
-
-    TASK_NAME: Name of the task (handwriting, discrete_gestures, or wrist)
-
-    DATASET: Dataset type (full_data or small_subset)
-
-    EMG_DATA_DIR: Directory where the data will be stored
     """
-    download_data(task_name, dataset, emg_data_dir)
+    download_data(task_name, dataset_type, output_dir)
 
 
 if __name__ == "__main__":
