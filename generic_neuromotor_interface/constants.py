@@ -13,6 +13,7 @@ S3_BUCKET = "fb-ctrl-oss"
 S3_PREFIX = "neuromotor-data/emg_data.tar.gz"
 S3_SUBSET_PREFIX = "neuromotor-data/emg_data_small.tar.gz"
 
+EMG_NUM_CHANNELS = 16
 EMG_SAMPLE_RATE = 2000  # Hz
 
 
