@@ -293,15 +293,16 @@ class DiscreteGesturesModule(BaseLightningModule):
        predictions within fixed time windows around gesture events.
 
     2. CLER (test): A more comprehensive metric that evaluates both classification
-       accuracy and temporal precision of gesture predictions. Unlike MulticlassAccuracy,
-       CLER accounts for the precise timing of predicted events and uses dynamic programming
-       to find optimal alignments between predictions and ground truth.
+       accuracy and temporal precision of gesture predictions. Unlike
+       MulticlassAccuracy, CLER accounts for the precise timing of predicted events
+       and uses dynamic programming to find optimal alignments between predictions
+       and ground truth.
 
     CLER cannot be used during validation because it requires a large number of
     samples to be estimated reliably and involves computationally expensive alignment
     process.
-    Therefore, CLER is computed only during testing over the entire test dataset, while the
-    simpler MulticlassAccuracy metric provides batch-wise feedback during validation.
+    Therefore, CLER is computed only during testing over the entire test dataset, while
+    the MulticlassAccuracy metric provides batch-wise feedback during validation.
     """
 
     def __init__(
@@ -354,7 +355,7 @@ class DiscreteGesturesModule(BaseLightningModule):
                 flattened_index = (
                     y_hat.argmax()
                 )  # Get the index of max probability of the predicted class
-                rows, cols = y_hat.shape
+                _, cols = y_hat.shape
                 col = flattened_index % cols
                 y_hat_class.append(col)
                 y_class.append(index[1])

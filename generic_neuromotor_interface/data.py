@@ -113,24 +113,6 @@ class EmgRecording:
         stop += self.start_idx
         return self.timeseries[start:stop]
 
-    def get_time_slice(
-        self, start_t: float = -np.inf, end_t: float = np.inf
-    ) -> np.ndarray:
-        """Load and return a contiguous slice of the timeseries windowed
-        by the provided start and end timestamps.
-
-        Parameters
-        ----------
-        start_t : float, optional
-            The start time of the window to grab (in absolute unix time).
-            Defaults to selecting from the beginning of the session.
-        end_t : float, optional
-            The end time of the window to grab (in absolute unix time).
-            Defaults to selecting until the end of the session.
-        """
-        start_idx, end_idx = self.get_idx_slice(start_t, end_t)
-        return self.timeseries[start_idx:end_idx]
-
     def get_idx_slice(
         self, start_t: float = -np.inf, end_t: float = np.inf
     ) -> tuple[Any, Any]:
