@@ -876,7 +876,7 @@ class Window(nn.Module):
                 f"{self.lpad=} should be less than {self.receptive_field=}"
             )
 
-        self.left_context = self.receptive_field - 1 - self.lpad
+        self.extra_left_context = self.receptive_field - 1 - self.lpad
 
         self.dilation = dilation
         self.kernel_size = kernel_size
@@ -921,7 +921,7 @@ class Residual(nn.Module):
         super().__init__()
 
         self.child = child
-        self.left_context = self.child.left_context
+        self.extra_left_context = self.child.extra_left_context
         self.stride = self.child.stride
 
         self.dropout = nn.Dropout(dropout)
@@ -931,7 +931,7 @@ class Residual(nn.Module):
         self,
         inputs: torch.Tensor,
     ) -> torch.Tensor:
-        residual = inputs[:, self.left_context :: self.stride]
+        residual = inputs[:, self.extra_left_context :: self.stride]
 
         x = self.child(inputs)
         x = x + self.weight * self.dropout(residual)
@@ -939,7 +939,7 @@ class Residual(nn.Module):
 
 
 class SlicedSequential(nn.Sequential):
-    """Wrapper on top of of nn.Sequential that tracks the left_context and stride
+    """Wrapper on top of of nn.Sequential that tracks the extra_left_context and stride
     of the linear chain of modules.
 
     The module automatically computes a `slice` object alongside the model forward
@@ -948,11 +948,11 @@ class SlicedSequential(nn.Sequential):
     the correct emission length.
 
     At initialization, the module will go through the list of modules and check if they
-    have the left_context and stride attributes. If they do, it will update the
-    total left_context and stride of the SlicedSequential module sequence.
+    have the extra_left_context and stride attributes. If they do, it will update the
+    total extra_left_context and stride of the SlicedSequential module sequence.
 
     Important: It is assumed that all modules in the sequence that will have an impact
-    on the time dimention have the left_context and stride attributes.
+    on the time dimention have the extra_left_context and stride attributes.
 
     Parameters
     ----------
@@ -962,14 +962,16 @@ class SlicedSequential(nn.Sequential):
 
     def __init__(self, *modules) -> None:
         super().__init__(*modules)
-        self.left_context, self.stride = self._get_left_context_and_stride(list(self))
+        self.extra_left_context, self.stride = self._get_extra_left_context_and_stride(
+            list(self)
+        )
 
     @staticmethod
-    def _get_left_context_and_stride(seq) -> tuple[int, int]:
+    def _get_extra_left_context_and_stride(seq) -> tuple[int, int]:
         left, stride = 0, 1
         for mod in seq:
-            if hasattr(mod, "left_context") and hasattr(mod, "stride"):
-                left += mod.left_context * stride
+            if hasattr(mod, "extra_left_context") and hasattr(mod, "stride"):
+                left += mod.extra_left_context * stride
                 stride *= mod.stride
         return left, stride
 
@@ -1036,7 +1038,7 @@ class MultiHeadAttention(nn.Module):
                 "MultiHeadAttention currently only supports unit stride when lpad > 0"
             )
 
-        self.left_context = self.window.left_context
+        self.extra_left_context = self.window.extra_left_context
         self.stride = self.window.stride
         self._init_and_register_attn_mask()
 
@@ -1104,9 +1106,9 @@ class MultiHeadAttention(nn.Module):
         #
         # 1. Grab attention mask for output samples that potentially correspond to
         #    warmup (i.e., attention_window < receptive_field) by clamping the range
-        #    [t_start, t_end) to [left_context, receptive_field - 1).
+        #    [t_start, t_end) to [extra_left_context, receptive_field - 1).
         warmup_idx = slice(
-            max(t_start, self.left_context),
+            max(t_start, self.extra_left_context),
             min(t_end, self.window_size - 1),
             self.stride,
         )
@@ -1241,7 +1243,7 @@ class Conv1d(nn.Module):
         self.state_size = self.receptive_field - stride
 
         self.stride = stride
-        self.left_context = self.receptive_field - 1
+        self.extra_left_context = self.receptive_field - 1
 
         self.net = nn.Conv1d(
             in_channels,
@@ -1530,7 +1532,7 @@ class HandwritingArchitecture(nn.Module):
         self.rotation_invariant_mlp = invariance_layer
         self.conformer = encoder
 
-        self.slice = slice(self.conformer.left_context, -1, self.conformer.stride)
+        self.slice = slice(self.conformer.extra_left_context, -1, self.conformer.stride)
 
     def forward(self, inputs: torch.Tensor) -> tuple[torch.Tensor, slice]:
         x = self.featurizer(inputs)
