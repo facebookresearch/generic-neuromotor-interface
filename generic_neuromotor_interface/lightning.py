@@ -453,6 +453,30 @@ class DiscreteGesturesModule(BaseLightningModule):
 
 
 class HandwritingModule(BaseLightningModule):
+    """
+    Handwriting module.
+
+    This module is designed for handwriting recognition tasks using EMG data.
+    It includes a network for processing EMG signals, an optimizer for training,
+    a learning rate scheduler, and a decoder for converting model outputs into text.
+    It also implements a CTC loss function for training and character error rate metrics
+    for evaluation.
+
+    Parameters
+    ----------
+    network : nn.Module
+        The neural network model for processing EMG signals.
+    optimizer : torch.optim.Optimizer
+        The optimizer used for training the network.
+    lr_scheduler : dict[str, Any]
+        A dictionary containing the learning rate scheduler configuration.
+        It should include 'schedules' (list of schedulers) and 'milestones'
+        (as defined by pytorch's documentation:
+        https://docs.pytorch.org/docs/stable/optim.html).
+    decoder : Decoder
+        The decoder used to convert model outputs into text.
+    """
+
     def __init__(
         self,
         network: nn.Module,
@@ -483,7 +507,25 @@ class HandwritingModule(BaseLightningModule):
         )
         torch.autograd.set_detect_anomaly(True)
 
-    def _step(self, batch: Mapping[str, torch.Tensor], stage: str = "train") -> float:
+    def _step(
+        self, batch: Mapping[str, torch.Tensor], stage: str = "train"
+    ) -> torch.Tensor:
+        """
+        Perform a training, validation, or test step.
+
+        Parameters
+        ----------
+        batch : Mapping[str, torch.Tensor]
+            A dictionary containing the input data and targets.
+            It should include
+                * 'emg' (EMG data),
+                * 'prompts' (target text),
+                * 'emg_lengths' (lengths of EMG sequences), and
+                * 'prompt_lengths' (lengths of target text).
+        stage : str, optional
+            The stage of the training process ('train', 'val', or 'test').
+            Default is 'train'.
+        """
         emg = batch["emg"]
         prompts = batch["prompts"]
 
@@ -543,7 +585,12 @@ class HandwritingModule(BaseLightningModule):
         self.log_dict(metrics.compute(), sync_dist=True)
         metrics.reset()
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> dict[str, Any]:
+        """
+        Configure optimizers and learning rate schedulers.
+        See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html # noqa: E501
+        for more details.
+        """
         self.optimizer = self.optimizer(self.parameters())
         return {
             "optimizer": self.optimizer,
@@ -551,7 +598,8 @@ class HandwritingModule(BaseLightningModule):
                 "scheduler": torch.optim.lr_scheduler.SequentialLR(
                     self.optimizer,
                     schedulers=[
-                        s(self.optimizer) for s in self.lr_scheduler["schedules"]
+                        sched(self.optimizer)
+                        for sched in self.lr_scheduler["schedules"]
                     ],
                     milestones=self.lr_scheduler["milestones"],
                 ),

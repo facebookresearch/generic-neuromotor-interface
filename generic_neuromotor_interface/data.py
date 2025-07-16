@@ -261,7 +261,8 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
 
 
 class HandwritingEmgDataset(torch.utils.data.Dataset):
-    """A `torch.utils.data.Dataset` that wraps an `EmgRecording` instance.
+    """A `torch.utils.data.Dataset` that wraps an `EmgRecording` instance
+    for Handwriting EMG data.
 
     Parameters
     ----------
