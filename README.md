@@ -8,10 +8,6 @@ The dataset contains sEMG recordings from 100 participants in each of the three 
 
 ![Figure 1 from the paper](images/figure_1.png)
 
-## Data
-
-![alt text](images/data_stats.png)
-
 ## Download the data and models
 
 > NOTE: The github repo described in this section will be made available upon publication of the paper.
@@ -86,6 +82,8 @@ After training, the model checkpoint will be available at `./logs/<DATE>/<TIME>/
 Model evaluation on the test set is automatically performed in the training script after training is complete. But if you want to run evaluation ad-hoc on any given trained model, please see the evaluation notebooks provided at `notebooks/<TASK_NAME>-eval.ipynb` for code to run inference with each model and run a full evaluation on the test set. These notebooks also provide some visualizations of the model outputs.
 
 ## Dataset details
+
+![alt text](images/data_stats.png)
 
 We are releasing data from 100 data collection participants for each task: 80 train, 10 validation, and 10 test participants. Train participants correspond to those from the 80 participant data point in Figures 2e-g (except for Handwriting, where we randomly selected 80 participants from the 100 participant data point). The 10 validation and train participants were randomly selected from the full set of validation and test participants.
 
