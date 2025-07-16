@@ -191,6 +191,51 @@ class WindowedEmgDataModule(pl.LightningDataModule):
 
 
 class HandwritingEmgDataModule(pl.LightningDataModule):
+    """A PyTorch LightningDataModule for constructing dataloaders to
+    assemble batches of handwriting EMG data.
+
+    Automatically takes care of applying random jitter to the windows
+    used by the train dataloader, but not to the validation and test dataloaders.
+
+    The test dataloader is also enforced to return data over single partitions,
+    rather than the longer windows (created during prompt concatenation) that
+    are created when `concatenate_prompts=True`.
+
+    Parameters
+    ----------
+    batch_size : int
+        The number of samples per batch.
+    padding : tuple[int, int]
+        Zero-padding to apply to the beginning and end of the EMG data.
+        This is dependent on the model architecture and should be used
+        to ensure that the output of the model has the same length, no
+        matter the input length. In other words it is used to account
+        for the kernel size of the convolutional layers of the model.
+    num_workers : int
+        The number of subprocesses to use for data loading.
+    data_split : DataSplit
+        A dataclass containing a dictionary of datasets and
+        corresponding partitions for the train, val, and test
+        splits.
+    transform : Transform
+        A callable transforms that takes an EMG numpy array and
+        a pandas table with prompt information and returns it in
+        a format suitable for handwriting training.
+        (See generic_neuromotor_interface/transforms.py)
+    data_location : str
+        Path to where the dataset files are stored.
+    emg_augmentation : Callable[[torch.Tensor], torch.Tensor] | None
+        An optional function that takes an EMG tensor and returns
+        an augmented EMG tensor.
+    concatenate_prompts : bool
+        Whether to perform concatenation of multiple prompt samples
+        up to `min_duration_s` seconds. This is useful to improve
+        model performance and training stability.
+    min_duration_s : float
+        Minimum duration of the EMG recording in seconds when using
+        `concatenate_prompts=True`. Ignored otherwise.
+    """
+
     def __init__(
         self,
         batch_size: int,
@@ -269,8 +314,6 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         )
 
     def test_dataloader(self) -> DataLoader:
-        # Test dataset does not involve windowing and entire partitions are
-        # fed at once. Limit batch size to 1 to fit within GPU memory.
         return DataLoader(
             self.test_dataset,
             batch_size=1,

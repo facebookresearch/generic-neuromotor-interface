@@ -13,8 +13,6 @@ import torch.nn.functional as F
 from omegaconf import ListConfig
 from torch import nn
 
-LPadType = int | Literal["none", "steady", "full"]
-
 
 class Permute(nn.Module):
     """Permute the dimensions of the input tensor.
@@ -790,6 +788,9 @@ class MaskAug(nn.Module):
         return x
 
 
+LPadType = int | Literal["none", "steady", "full"]
+
+
 def TimeReductionLayer(
     stride: int,
     lpad: LPadType = 0,
@@ -875,7 +876,7 @@ class Window(nn.Module):
                 f"{self.lpad=} should be less than {self.receptive_field=}"
             )
 
-        self.extra_left_context = self.receptive_field - 1 - self.lpad
+        self.left_context = self.receptive_field - 1 - self.lpad
 
         self.dilation = dilation
         self.kernel_size = kernel_size
@@ -920,7 +921,7 @@ class Residual(nn.Module):
         super().__init__()
 
         self.child = child
-        self.extra_left_context = self.child.extra_left_context
+        self.left_context = self.child.left_context
         self.stride = self.child.stride
 
         self.dropout = nn.Dropout(dropout)
@@ -930,7 +931,7 @@ class Residual(nn.Module):
         self,
         inputs: torch.Tensor,
     ) -> torch.Tensor:
-        residual = inputs[:, self.extra_left_context :: self.stride]
+        residual = inputs[:, self.left_context :: self.stride]
 
         x = self.child(inputs)
         x = x + self.weight * self.dropout(residual)
@@ -938,7 +939,7 @@ class Residual(nn.Module):
 
 
 class SlicedSequential(nn.Sequential):
-    """Wrapper on top of of nn.Sequential that tracks the extra_left_context and stride
+    """Wrapper on top of of nn.Sequential that tracks the left_context and stride
     of the linear chain of modules.
 
     The module automatically computes a `slice` object alongside the model forward
@@ -947,11 +948,11 @@ class SlicedSequential(nn.Sequential):
     the correct emission length.
 
     At initialization, the module will go through the list of modules and check if they
-    have the extra_left_context and stride attributes. If they do, it will update the
-    total extra_left_context and stride of the SlicedSequential module sequence.
+    have the left_context and stride attributes. If they do, it will update the
+    total left_context and stride of the SlicedSequential module sequence.
 
     Important: It is assumed that all modules in the sequence that will have an impact
-    on the time dimention have the extra_left_context and stride attributes.
+    on the time dimention have the left_context and stride attributes.
 
     Parameters
     ----------
@@ -961,16 +962,14 @@ class SlicedSequential(nn.Sequential):
 
     def __init__(self, *modules) -> None:
         super().__init__(*modules)
-        self.extra_left_context, self.stride = self.__get_extra_left_context_and_stride(
-            list(self)
-        )
+        self.left_context, self.stride = self._get_left_context_and_stride(list(self))
 
     @staticmethod
-    def __get_extra_left_context_and_stride(seq) -> tuple[int, int]:
+    def _get_left_context_and_stride(seq) -> tuple[int, int]:
         left, stride = 0, 1
         for mod in seq:
-            if hasattr(mod, "extra_left_context") and hasattr(mod, "stride"):
-                left += mod.extra_left_context * stride
+            if hasattr(mod, "left_context") and hasattr(mod, "stride"):
+                left += mod.left_context * stride
                 stride *= mod.stride
         return left, stride
 
@@ -992,7 +991,7 @@ class MultiHeadAttention(nn.Module):
 
     Parameters
     ----------
-    input_dim: .
+    input_dim: Feature dimension of the inputs.
     num_heads: Number of parallel attention heads. Note that ``embed_dim``
         will be split across ``num_heads`` (i.e. each head will have dimension
         ``embed_dim // num_heads``).
@@ -1037,12 +1036,9 @@ class MultiHeadAttention(nn.Module):
                 "MultiHeadAttention currently only supports unit stride when lpad > 0"
             )
 
-        self.extra_left_context = self.window.extra_left_context
+        self.left_context = self.window.left_context
         self.stride = self.window.stride
         self._init_and_register_attn_mask()
-
-    def _register_attn_mask(self, attn_mask: torch.Tensor) -> None:
-        self.register_buffer("attn_mask", attn_mask)
 
     def _attn_params(
         self,
@@ -1080,7 +1076,7 @@ class MultiHeadAttention(nn.Module):
         # reflect the manner in which each modality stream are concatenated, such that
         # attention can be applied to the causal histories of all streams in one
         # attentional receptive field.
-        self._register_attn_mask(attn_mask)
+        self.register_buffer("attn_mask", attn_mask)
 
     def _attn_params_op(
         self,
@@ -1108,9 +1104,9 @@ class MultiHeadAttention(nn.Module):
         #
         # 1. Grab attention mask for output samples that potentially correspond to
         #    warmup (i.e., attention_window < receptive_field) by clamping the range
-        #    [t_start, t_end) to [extra_left_context, receptive_field - 1).
+        #    [t_start, t_end) to [left_context, receptive_field - 1).
         warmup_idx = slice(
-            max(t_start, self.extra_left_context),
+            max(t_start, self.left_context),
             min(t_end, self.window_size - 1),
             self.stride,
         )
@@ -1245,7 +1241,7 @@ class Conv1d(nn.Module):
         self.state_size = self.receptive_field - stride
 
         self.stride = stride
-        self.extra_left_context = self.receptive_field - 1
+        self.left_context = self.receptive_field - 1
 
         self.net = nn.Conv1d(
             in_channels,
@@ -1284,7 +1280,7 @@ def ConformerEncoderBlock(
     (attn_block): Attention block
     (conv_block): Convolution block
     (ff_block2): FF block
-    (layer_norm)
+    (layer_norm): Layer normalization
     """
     ff_block1: nn.Module = Residual(
         SlicedSequential(
@@ -1439,7 +1435,7 @@ def HandwritingConformer(
     num_layers: int | None = None,
     dropout: float = 0.0,
     time_reduction_stride: int = 1,
-):
+) -> SlicedSequential:
     """Builder function for a conformer-based handwriting model.
 
     -> TimeReductionLayer
@@ -1486,14 +1482,43 @@ def HandwritingConformer(
 
 
 class HandwritingArchitecture(nn.Module):
+    """Conformer-based architecture for handwriting recognition.
+    This architecture is designed to process multivariate EMG signals and
+    produce emissions for a sequence-to-sequence model.
+
+    Takes as input batches of shape
+        (batch_size, num_channels, time)
+    and produces emissions of shape
+        (batch_size, downsampled_time, vocab_size)
+    where `downsampled_time` is computed based on the architecture's downsampling
+    configuration, as computed by the `compute_time_downsampling`.
+
+    Parameters
+    ----------
+    num_channels : int
+        Number of EMG channels in the input data.
+    vocab_size : int
+        Size of the vocabulary for the output emissions.
+    featurizer : MultivariatePowerFrequencyFeatures
+        Feature extractor that converts raw EMG signals into
+        multivariate power frequency features.
+    specgram_augment : MaskAug
+        SpecAugment module (`MaskAug`) module for data augmentation.
+    invariance_layer : RotationInvariantMPFMLP
+        Layer that applies rotation invariance to the multivariate
+        power frequency features.
+    encoder : SlicedSequential
+        Conformer encoder that processes the features and produces emissions.
+    """
+
     def __init__(
         self,
-        num_channels,
-        vocab_size,
+        num_channels: int,
+        vocab_size: int,
         featurizer: MultivariatePowerFrequencyFeatures,
-        specgram_augment,
-        invariance_layer,
-        encoder,
+        specgram_augment: MaskAug,
+        invariance_layer: RotationInvariantMPFMLP,
+        encoder: SlicedSequential,
     ) -> None:
         super().__init__()
 
@@ -1505,9 +1530,9 @@ class HandwritingArchitecture(nn.Module):
         self.rotation_invariant_mlp = invariance_layer
         self.conformer = encoder
 
-        self.slice = slice(self.conformer.extra_left_context, -1, self.conformer.stride)
+        self.slice = slice(self.conformer.left_context, -1, self.conformer.stride)
 
-    def forward(self, inputs):
+    def forward(self, inputs: torch.Tensor) -> tuple[torch.Tensor, slice]:
         x = self.featurizer(inputs)
         x = self.specaug(x)
         x = self.rotation_invariant_mlp(x)
@@ -1518,7 +1543,7 @@ class HandwritingArchitecture(nn.Module):
 
     def compute_time_downsampling(
         self, emg_lengths: torch.Tensor, slc: slice
-    ) -> Sequence[int]:
+    ) -> list[int]:
         # Featurization
         emg_lengths = self.featurizer.compute_time_downsampling(emg_lengths)
 
