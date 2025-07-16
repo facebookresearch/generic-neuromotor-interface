@@ -79,15 +79,6 @@ class TestRotationInvariantLSTM(unittest.TestCase):
         self.assertEqual(output.shape, (batch_size, output_dim, output_num_tsteps))
 
 
-DEFAULT_MPF_FREQUENCY_BINS = (
-    (0, 50),
-    (30, 100),
-    (100, 225),
-    (225, 375),
-    (375, 700),
-    (700, 1000),
-)
-
 WRIST_MODEL_MPF_PARAMS = {
     "window_length": 200,
     "stride": 40,

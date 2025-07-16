@@ -36,7 +36,7 @@ def plot_emg(
     """
 
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 4))
+        _, ax = plt.subplots(figsize=(10, 4))
 
     if normalize_time:
         time = time.copy() - time[0]
@@ -101,7 +101,7 @@ def plot_wrist(
     """
 
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 4))
+        _, ax = plt.subplots(figsize=(10, 4))
 
     if normalize_time:
         time = time.copy() - time[0]
