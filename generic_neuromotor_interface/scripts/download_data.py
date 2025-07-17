@@ -7,6 +7,7 @@
 from pathlib import Path
 
 import click
+from datetime import datetime
 
 from generic_neuromotor_interface.download_utils import (
     download_file,
@@ -29,10 +30,23 @@ def download_data(task_name, dataset, emg_data_dir):
     """
     base_url = "https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data"
 
+
     print(f"Downloading the {dataset} data for {task_name}...")
 
     # Create directory
     data_dir = ensure_dir(Path(emg_data_dir))
+
+    # Check flag file (has data already been downloaded?)
+    flag_file = Path(data_dir / f".data_downloaded_{dataset}_{task_name}")
+    if flag_file.exists():
+        modification_timestamp = flag_file.stat().st_mtime 
+        last_modified_datetime = datetime.fromtimestamp(modification_timestamp)
+        print(
+            f"Found data downloaded for {task_name=}, {dataset=} at {data_dir=}. "
+            f"Last modified: {last_modified_datetime}. "
+             "Assuming data already downloaded!"
+        )
+        return data_dir
 
     # Download the tar file
     tar_filename = f"{task_name}_{dataset}.tar"
@@ -51,6 +65,9 @@ def download_data(task_name, dataset, emg_data_dir):
     download_file(
         corpus_url, corpus_path, f"Downloading {task_name} corpus spreadsheet"
     )
+
+    # Touch the flag file to signal data was downloaded
+    flag_file.touch()
 
     print(f"Data for {task_name} ({dataset}) downloaded and extracted to {data_dir}")
     return data_dir

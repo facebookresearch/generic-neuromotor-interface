@@ -36,22 +36,45 @@ from omegaconf import DictConfig, OmegaConf
 
 # for now, we keep these os OS env vars for manual modification
 USE_REAL_DATA = os.environ.get("USE_REAL_DATA", False)
+USE_FULL_DATA = os.environ.get("USE_FULL_DATA", False)
+
+if USE_FULL_DATA and not USE_REAL_DATA:
+    raise ValueError(
+        f"Got {USE_FULL_DATA=} but {USE_REAL_DATA=}."
+        f"{USE_FULL_DATA=} should only be used with USE_REAL_DATA=True"
+    )
+
+USE_PERSISTENT_TEMP_DIR = os.environ.get("USE_PERSISTENT_TEMP_DIR", True)
+
 USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", False)
+USE_CUDA = os.environ.get("USE_CUDA", False)
+
+print("Using configuration: {USE_REAL_DATA=} {USE_FULL_DATA=} {USE_REAL_CHECKPOINTS=} {USE_CUDA=}")
 
 
 # Define fixtures for integration tests
 @pytest.fixture(scope="module")
 def temp_data_dir():
     """Create a temporary directory for test data."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
+    if USE_PERSISTENT_TEMP_DIR:
+        path = os.path.join(tempfile.gettempdir(), "emg_test_data_cache")
+        print(f"Using persistent temp dir at: {path=}")
+        yield path
+    else:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            yield Path(temp_dir)
 
 
 @pytest.fixture(scope="module")
 def temp_model_dir():
     """Create a temporary directory for test data."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
+    if USE_PERSISTENT_TEMP_DIR:
+        path = os.path.join(tempfile.gettempdir(), "emg_test_data_cache")
+        print(f"Using persistent temp dir at: {path=}")
+        yield path
+    else:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            yield Path(temp_dir)
 
 
 def get_mock_datasets(task_name, temp_data_dir):
@@ -94,7 +117,8 @@ def task_dataset_dir_fixture(request, temp_data_dir):
     task_name = request.param
 
     if USE_REAL_DATA:
-        downloaded_dir = download_data(task_name, "small_subset", temp_data_dir)
+        dataset_subset = "small_subset" if not USE_FULL_DATA else "full_data"
+        downloaded_dir = download_data(task_name, dataset_subset, temp_data_dir)
         assert downloaded_dir is not None
         assert downloaded_dir.exists()
     else:
@@ -221,7 +245,7 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             overrides=[
                 f"data_location={str(dataset_dir)}",
                 "trainer.max_epochs=1",
-                "trainer.accelerator=cpu",
+                 f"trainer.accelerator={'cpu' if not USE_CUDA else 'cuda'}",
                 f"data_module/data_split={task_name}_mini_split",
             ],
         )
@@ -253,7 +277,7 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
             config_name=task_name,
             overrides=[
                 f"data_location={str(dataset_dir)}",
-                "trainer.accelerator=cpu",
+                f"trainer.accelerator={'cpu' if not USE_CUDA else 'cuda'}",
                 f"data_module/data_split={task_name}_mini_split",
             ],
         )
