@@ -15,8 +15,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from generic_neuromotor_interface.constants import Task
+from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE, Task
 from generic_neuromotor_interface.transforms import Transform
+from generic_neuromotor_interface.utils import get_full_dataset_path
+from torch.utils.data import ConcatDataset
 from typing_extensions import Self
 
 
@@ -137,8 +139,8 @@ class EmgRecording:
 
 
 class WindowedEmgDataset(torch.utils.data.Dataset):
-    """A `torch.utils.data.Dataset` that wraps an `EmgRecording` instance
-    and provides windowing and striding functionality.
+    """A `torch.utils.data.Dataset` comprising strided windows
+    of EMG data from an `EmgRecording` instance
 
     Parameters
     ----------
@@ -373,3 +375,79 @@ class HandwritingEmgDataset(torch.utils.data.Dataset):
             datum["emg"] = self.emg_augmentation(datum["emg"])
 
         return datum
+
+
+def make_dataset(
+    data_location: str,
+    partition_dict: dict[str, Partitions | None],
+    transform: Transform,
+    emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None,
+    window_length: int | None,
+    stride: int | None,
+    jitter: bool,
+) -> ConcatDataset:
+    """
+    Creates a concatenated dataset of EMG data windows from specified partitions.
+
+    This function iterates over the provided datasets and their respective partitions,
+    creating a `WindowedEmgDataset` for each partition. If a partition is too short
+    for the specified window length, it is skipped. The resulting datasets are combined
+    into a `ConcatDataset`, which is returned.
+
+    Parameters
+    ----------
+    data_location : str
+        Path to where the dataset files are stored.
+    partition_dict : dict[str, Partitions | None]
+        A dictionary mapping dataset names to their respective partitions.
+        Each partition is a list of tuples indicating start and end times.
+    transform : Transform
+        A composed sequence of transforms that takes
+        a window/slice of `EmgRecording` in the form of a numpy
+        structured array and a pandas DataFrame with prompt labels
+        and times, and returns a `torch.Tensor` instance.
+    emg_augmentation : Callable[[torch.Tensor], torch.Tensor] | None
+        An optional function that takes an EMG tensor and returns
+        an augmented EMG tensor.
+    window_length : int | None
+        Size of each window. If None, then the entire partition is used.
+    stride : int | None
+        Stride between consecutive windows from the same recording.
+        Specify None to set this to window_length, in which case
+        there will be no overlap between consecutive windows.
+    jitter : bool
+        If True, randomly jitter the start of each window. Useful to add
+        variability in the training samples.
+
+    Returns
+    -------
+    ConcatDataset
+        A concatenated dataset of `WindowedEmgDataset` instances.
+    """
+    datasets = []
+    for dataset, partitions in partition_dict.items():
+        # A single partition that spans the entire dataset
+        if partitions is None:
+            partitions = [(-np.inf, np.inf)]
+
+        for start, end in partitions:
+            if window_length is not None:
+                # Skip partitions that are too short
+                partition_samples = (end - start) * EMG_SAMPLE_RATE
+                if partition_samples < window_length:
+                    print(f"Skipping partition {dataset} {start} {end}")
+                    continue
+
+            datasets.append(
+                WindowedEmgDataset(
+                    get_full_dataset_path(data_location, dataset),
+                    start=start,
+                    end=end,
+                    transform=transform,
+                    window_length=window_length,
+                    stride=stride,
+                    jitter=jitter,
+                    emg_augmentation=emg_augmentation,
+                )
+            )
+    return ConcatDataset(datasets)

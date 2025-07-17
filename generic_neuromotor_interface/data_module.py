@@ -11,12 +11,11 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 
-from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 from generic_neuromotor_interface.data import (
     DataSplit,
     HandwritingEmgDataset,
+    make_dataset,
     Partitions,
-    WindowedEmgDataset,
 )
 from generic_neuromotor_interface.transforms import Transform
 from generic_neuromotor_interface.utils import (
@@ -120,44 +119,36 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.data_location = data_location
 
-    def _make_dataset(
-        self, partition_dict: dict[str, Partitions | None], stage: str
-    ) -> ConcatDataset:
-        datasets = []
-        for dataset, partitions in partition_dict.items():
-            # A single partition that spans the entire dataset
-            if partitions is None:
-                partitions = [(-np.inf, np.inf)]
-
-            for start, end in partitions:
-                # Skip partitions that are too short
-                partition_samples = (end - start) * EMG_SAMPLE_RATE
-                if partition_samples < self.window_length:
-                    print(f"Skipping partition {dataset} {start} {end}")
-                    continue
-
-                datasets.append(
-                    WindowedEmgDataset(
-                        get_full_dataset_path(self.data_location, dataset),
-                        start=start,
-                        end=end,
-                        transform=self.transform,
-                        # At test time, we feed in the entire partition in one
-                        # window to be more consistent with real-time deployment.
-                        window_length=None if stage == "test" else self.window_length,
-                        stride=None if stage == "test" else self.stride,
-                        jitter=stage == "train",
-                        emg_augmentation=(
-                            self.emg_augmentation if stage == "train" else None
-                        ),
-                    )
-                )
-        return ConcatDataset(datasets)
-
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = self._make_dataset(self.data_split.train, "train")
-        self.val_dataset = self._make_dataset(self.data_split.val, "val")
-        self.test_dataset = self._make_dataset(self.data_split.test, "test")
+        self.train_dataset = make_dataset(
+            data_location=self.data_location,
+            transform=self.transform,
+            partition_dict=self.data_split.train,
+            window_length=self.window_length,
+            stride=self.stride,
+            jitter=True,
+            emg_augmentation=self.emg_augmentation,
+        )
+        self.val_dataset = make_dataset(
+            data_location=self.data_location,
+            transform=self.transform,
+            partition_dict=self.data_split.val,
+            window_length=self.window_length,
+            stride=self.stride,
+            jitter=False,
+            emg_augmentation=None,
+        )
+        self.test_dataset = make_dataset(
+            data_location=self.data_location,
+            transform=self.transform,
+            partition_dict=self.data_split.test,
+            # At test time, we feed in the entire partition in one
+            # window to be more consistent with real-time deployment.
+            window_length=None,
+            stride=None,
+            jitter=False,
+            emg_augmentation=None,
+        )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
