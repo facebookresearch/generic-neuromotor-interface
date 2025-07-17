@@ -61,7 +61,7 @@ print(
 @pytest.fixture(scope="module")
 def temp_data_dir():
     """Create a temporary directory for test data."""
-    if USE_PERSISTENT_TEMP_DIR:
+    if USE_PERSISTENT_TEMP_DIR and USE_REAL_DATA:
         path = Path(tempfile.gettempdir()) / "emg_test_data_cache"
         print(f"Using persistent temp dir at: {path=}")
         yield path
@@ -85,27 +85,14 @@ def temp_model_dir():
 def get_mock_datasets(task_name, temp_data_dir):
     print(f"Creating mock datasets for {task_name} in {temp_data_dir}")
     for user in ["000", "001", "002"]:
-        # Set some per-task specific parameters
-        if task_name == "wrist":
-            # NOTE: to accommodate for wrist_mini_split.yml hard coding
-            start_time = 1713966045.0
-            num_samples = 200 * 2000
-            num_channels = 16
-        else:
-            start_time = 1600000000.0
-            num_samples = 1000
-            num_channels = 16
 
-        if task_name == "discrete_gestures":
-            num_samples = 32_000  # NOTE: needed for 16_000 window size
+        num_samples = 32_000  # NOTE: needed for 16_000 window size discrete_gestures
 
         _file = create_mock_dataset(
             task_name=task_name,
             output_path=temp_data_dir,
-            start_time=start_time,
             num_samples=num_samples,
             num_prompts=9,
-            num_channels=num_channels,
             output_file_name=f"{task_name}_user_{user}_dataset_000.hdf5",
         )
         assert _file is not None

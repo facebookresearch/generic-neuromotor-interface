@@ -5,5 +5,4 @@ train:
 val:
   discrete_gestures_user_001_dataset_000: null
 test:
-  discrete_gestures_user_002_dataset_000:
-    - [1634054147.748458, 1634054327.903508]
+  discrete_gestures_user_002_dataset_000: null
