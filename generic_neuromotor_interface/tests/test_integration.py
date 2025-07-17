@@ -35,8 +35,8 @@ from omegaconf import DictConfig, OmegaConf
 
 
 # for now, we keep these os OS env vars for manual modification
-USE_REAL_DATA = os.environ.get("USE_REAL_DATA", False)
-USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", False)
+USE_REAL_DATA = os.environ.get("USE_REAL_DATA", "False").lower() == "true"
+USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", "False").lower() == "true"
 
 
 # Define fixtures for integration tests
