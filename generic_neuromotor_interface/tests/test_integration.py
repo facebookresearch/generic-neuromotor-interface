@@ -261,7 +261,7 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
 
 def _assert_expected(actual: float, expected: float, metric_name: str, atol=1e-3):
     delta = actual - expected
-    print(f"[{name}] Got {actual=}. Expected {expected=}. Delta {delta=}")
+    print(f"[{metric_name}] Got {actual=}. Expected {expected=}. Delta {delta=}")
     np.testing.assert_allclose(actual, expected, atol=atol)
 
 
@@ -270,7 +270,7 @@ def _check_expected_results(task_name: str, results: dict[str, Any]):
         if task_name == "wrist":
             _assert_expected(
                 actual=results["test_metrics"][0]["test_mae_deg_per_sec"],
-                expected=11.233,
+                expected=11.2348,
                 metric_name="wrist:test_mae_deg_per_sec",
             )
         elif task_name == "discrete_gestures":

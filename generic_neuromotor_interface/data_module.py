@@ -155,8 +155,11 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         return ConcatDataset(datasets)
 
     def setup(self, stage: str | None = None) -> None:
+        print("Setting up train dataset...")
         self.train_dataset = self._make_dataset(self.data_split.train, "train")
+        print("Setting up val dataset...")
         self.val_dataset = self._make_dataset(self.data_split.val, "val")
+        print("Setting up test dataset...")
         self.test_dataset = self._make_dataset(self.data_split.test, "test")
 
     def train_dataloader(self) -> DataLoader:
