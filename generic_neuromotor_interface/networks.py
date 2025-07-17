@@ -962,7 +962,9 @@ class SlicedSequential(nn.Sequential):
 
     def __init__(self, *modules) -> None:
         super().__init__(*modules)
-        self.extra_left_context, self.stride = self._get_extra_left_context_and_stride(list(self))
+        self.extra_left_context, self.stride = self._get_extra_left_context_and_stride(
+            list(self)
+        )
 
     @staticmethod
     def _get_extra_left_context_and_stride(seq) -> tuple[int, int]:

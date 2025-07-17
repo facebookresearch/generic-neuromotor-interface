@@ -20,11 +20,14 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Any
+import numpy as np
 
 import hydra
 
 import pytest
 import pytorch_lightning as pl
+
+from distutils.util import strtobool
 
 from generic_neuromotor_interface.scripts.download_data import download_data
 from generic_neuromotor_interface.scripts.download_models import download_models
@@ -35,8 +38,8 @@ from omegaconf import DictConfig, OmegaConf
 
 
 # for now, we keep these os OS env vars for manual modification
-USE_REAL_DATA = os.environ.get("USE_REAL_DATA", False)
-USE_FULL_DATA = os.environ.get("USE_FULL_DATA", False)
+USE_REAL_DATA = strtobool(os.environ.get("USE_REAL_DATA", "False"))
+USE_FULL_DATA = strtobool(os.environ.get("USE_FULL_DATA", "False"))
 
 if USE_FULL_DATA and not USE_REAL_DATA:
     raise ValueError(
@@ -44,12 +47,14 @@ if USE_FULL_DATA and not USE_REAL_DATA:
         f"{USE_FULL_DATA=} should only be used with USE_REAL_DATA=True"
     )
 
-USE_PERSISTENT_TEMP_DIR = os.environ.get("USE_PERSISTENT_TEMP_DIR", True)
+USE_PERSISTENT_TEMP_DIR = strtobool(os.environ.get("USE_PERSISTENT_TEMP_DIR", "True"))
 
-USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", False)
-USE_CUDA = os.environ.get("USE_CUDA", False)
+USE_REAL_CHECKPOINTS = strtobool(os.environ.get("USE_REAL_CHECKPOINTS", "False"))
+USE_CUDA = strtobool(os.environ.get("USE_CUDA", "False"))
 
-print("Using configuration: {USE_REAL_DATA=} {USE_FULL_DATA=} {USE_REAL_CHECKPOINTS=} {USE_CUDA=}")
+print(
+    f"Using configuration: {USE_REAL_DATA=} {USE_FULL_DATA=} {USE_REAL_CHECKPOINTS=} {USE_CUDA=}"
+)
 
 
 # Define fixtures for integration tests
@@ -57,7 +62,7 @@ print("Using configuration: {USE_REAL_DATA=} {USE_FULL_DATA=} {USE_REAL_CHECKPOI
 def temp_data_dir():
     """Create a temporary directory for test data."""
     if USE_PERSISTENT_TEMP_DIR:
-        path = os.path.join(tempfile.gettempdir(), "emg_test_data_cache")
+        path = Path(tempfile.gettempdir()) / "emg_test_data_cache"
         print(f"Using persistent temp dir at: {path=}")
         yield path
     else:
@@ -245,9 +250,13 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             overrides=[
                 f"data_location={str(dataset_dir)}",
                 "trainer.max_epochs=1",
-                 f"trainer.accelerator={'cpu' if not USE_CUDA else 'cuda'}",
-                f"data_module/data_split={task_name}_mini_split",
-            ],
+                f"trainer.accelerator={'cpu' if not USE_CUDA else 'cuda'}",
+            ]
+            + (
+                [f"data_module/data_split={task_name}_mini_split"]
+                if not USE_FULL_DATA
+                else []
+            ),
         )
 
         # Run training with minimal epochs
@@ -263,12 +272,43 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             assert "test_metrics" in results
 
 
+def _assert_expected(actual: float, expected: float, metric_name: str, atol=1e-3):
+    delta = actual - expected
+    print(f"[{name}] Got {actual=}. Expected {expected=}. Delta {delta=}")
+    np.testing.assert_allclose(actual, expected, atol=atol)
+
+
+def _check_expected_results(task_name: str, results: dict[str, Any]):
+    if USE_FULL_DATA:
+        if task_name == "wrist":
+            _assert_expected(
+                actual=results["test_metrics"][0]["test_mae_deg_per_sec"],
+                expected=11.233,
+                metric_name="wrist:test_mae_deg_per_sec",
+            )
+        elif task_name == "discrete_gestures":
+            _assert_expected(
+                actual=results["test_metrics"][0]["test_cler"],
+                expected=0.1819,
+                metric_name="discrete_gestures:test_cler",
+            )
+        elif task_name == "handwriting":
+            _assert_expected(
+                actual=results["test_metrics"][0]["test/CER"],
+                expected=30.0686,
+                metric_name="handwriting:test/CER",
+            )
+        else:
+            raise ValueError(f"Unrecogznied {task_name=}")
+
+
 def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
     """Test end-to-end inference pipeline."""
     # Test code that loads a model, runs inference on sample data,
     # and verifies the output
 
     assert task_name in {"discrete_gestures", "handwriting", "wrist"}
+    print(f"Running evaluation test for {task_name=} {dataset_dir=} {checkpoint_dir=}")
 
     config_dir = str(Path(__file__).parent.absolute() / "../../config")
     with initialize_config_dir(version_base="1.1", config_dir=config_dir):
@@ -278,8 +318,12 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
             overrides=[
                 f"data_location={str(dataset_dir)}",
                 f"trainer.accelerator={'cpu' if not USE_CUDA else 'cuda'}",
-                f"data_module/data_split={task_name}_mini_split",
-            ],
+            ]
+            + (
+                [f"data_module/data_split={task_name}_mini_split"]
+                if not USE_FULL_DATA
+                else []
+            ),
         )
 
         loaded_config = OmegaConf.load(checkpoint_dir / "model_config.yaml")
@@ -289,13 +333,21 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
         loaded_config.trainer.accelerator = base_config.trainer.accelerator
 
         assert isinstance(loaded_config, DictConfig)
+        print(OmegaConf.to_yaml(loaded_config))
 
-        # Run training with minimal epochs
+        # Run eval
+        evaluate_validation_set = False  # we can skip val since it's tested during other tests
+
         results = evaluate_from_checkpoint(
-            loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt")
+            loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt"), evaluate_validation_set=evaluate_validation_set
         )
 
         # Verify that training completed successfully
         assert results is not None
-        assert "val_metrics" in results
+
+        if evaluate_validation_set:
+            assert "val_metrics" in results
+
         assert "test_metrics" in results
+
+        _check_expected_results(task_name, results)

@@ -30,7 +30,6 @@ def download_data(task_name, dataset, emg_data_dir):
     """
     base_url = "https://fb-ctrl-oss.s3.amazonaws.com/neuromotor-data"
 
-
     print(f"Downloading the {dataset} data for {task_name}...")
 
     # Create directory
@@ -39,12 +38,12 @@ def download_data(task_name, dataset, emg_data_dir):
     # Check flag file (has data already been downloaded?)
     flag_file = Path(data_dir / f".data_downloaded_{dataset}_{task_name}")
     if flag_file.exists():
-        modification_timestamp = flag_file.stat().st_mtime 
+        modification_timestamp = flag_file.stat().st_mtime
         last_modified_datetime = datetime.fromtimestamp(modification_timestamp)
         print(
             f"Found data downloaded for {task_name=}, {dataset=} at {data_dir=}. "
             f"Last modified: {last_modified_datetime}. "
-             "Assuming data already downloaded!"
+            "Assuming data already downloaded!"
         )
         return data_dir
 

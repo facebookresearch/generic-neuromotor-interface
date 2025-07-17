@@ -6,6 +6,7 @@ defaults:
 
 # Data settings
 data_location: ~/emg_data
+task: handwriting
 
 # Train settings
 seed: 42

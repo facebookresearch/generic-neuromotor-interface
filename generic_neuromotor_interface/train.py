@@ -103,6 +103,8 @@ def evaluate_from_checkpoint(
     config: DictConfig,
     checkpoint_path: str,
     logger: logging.Logger | None = None,
+    evaluate_validation_set: bool = True,
+    evaluate_test_set: bool = True,
 ) -> dict[str, Any]:
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -122,23 +124,38 @@ def evaluate_from_checkpoint(
     datamodule = instantiate(config.data_module, _convert_="all")
 
     accelerator = config.trainer.get("accelerator", "auto")
-    trainer = Trainer(
-        accelerator=accelerator,
-        devices=1,
-    )
-
-    logger.info("Running validation...")
-    val_results = trainer.validate(model=module, datamodule=datamodule)
-    logger.info(f"Validation completed! {val_results=}")
-
-    logger.info("Running test...")
-    test_results = trainer.test(model=module, datamodule=datamodule)
-    logger.info(f"Test completed! {test_results=}")
 
     results = {}
     results["checkpoint_path"] = checkpoint_path
-    results["val_metrics"] = val_results
-    results["test_metrics"] = test_results
+    
+    if evaluate_validation_set:
+        trainer = Trainer(
+            accelerator=accelerator,
+            devices=1,
+        )
+
+        logger.info("Running validation...")
+        val_results = trainer.validate(model=module, datamodule=datamodule)
+        logger.info(f"Validation completed! {val_results=}")
+
+        results["val_metrics"] = val_results
+
+    if evaluate_test_set:
+        task = config.get("task")
+        if task == "discrete_gestures":
+            logger.info(f"Running test-set evaluation for {task=} on cpu due to CUDNN incompatibilities with large sequence length.")
+            accelerator = "cpu"
+
+        trainer = Trainer(
+            accelerator=accelerator,
+            devices=1,
+        )
+
+        logger.info("Running test...")
+        test_results = trainer.test(model=module, datamodule=datamodule)
+        logger.info(f"Test completed! {test_results=}")
+
+        results["test_metrics"] = test_results
 
     return results
 
