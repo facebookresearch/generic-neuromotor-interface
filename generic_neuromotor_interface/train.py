@@ -198,6 +198,8 @@ def _run_validate_and_test(module, datamodule, results, logger, accelerator):
     val_results = trainer.validate(model=module, datamodule=datamodule)
     logger.info(f"Validation completed! {val_results=}")
 
+    # TODO: do we need to enforce cpu here as well?
+    # TODO: share logic with evaluate_from_checkpoint?
     logger.info("Running test...")
     test_results = trainer.test(model=module, datamodule=datamodule)
     logger.info(f"Test completed! {test_results=}")
