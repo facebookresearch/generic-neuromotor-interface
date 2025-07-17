@@ -34,3 +34,8 @@ dependencies:
   - pip:
       - matplotlib==3.9.2
       - pytorch-lightning==1.8.6
+variables:
+  # for deterministic algorithms
+  # see: https://docs.pytorch.org/docs/stable/notes/randomness.html#avoiding-nondeterministic-algorithms
+  # see: https://docs.nvidia.com/cuda/cublas/index.html#results-reproducibility
+  CUBLAS_WORKSPACE_CONFIG: ":4096:8"
