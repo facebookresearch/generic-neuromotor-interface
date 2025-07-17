@@ -16,9 +16,10 @@ import pandas as pd
 import torch
 
 from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE, Task
-from generic_neuromotor_interface.transforms import Transform
+from generic_neuromotor_interface.transforms import HandwritingTransform, Transform
 from generic_neuromotor_interface.utils import get_full_dataset_path
 from torch.utils.data import ConcatDataset
+
 from typing_extensions import Self
 
 
@@ -151,10 +152,9 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
     end : float
         End time of the recording.
     transform : Transform
-        A composed sequence of transforms that takes
-        a window/slice of `EmgRecording` in the form of a numpy
-        structured array and a pandas DataFrame with prompt labels
-        and times, and returns a `torch.Tensor` instance.
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a pandas DataFrame with
+        prompt labels and times, and returns a `torch.Tensor` instance.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
         An optional function that takes an EMG tensor and returns
         an augmented EMG tensor. See augmentation.py.
@@ -245,25 +245,25 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
 
 
 class HandwritingEmgDataset(torch.utils.data.Dataset):
-    """A `torch.utils.data.Dataset` that wraps an `EmgRecording` instance
-    for Handwriting EMG data.
+    """A `torch.utils.data.Dataset` comprising padded windows
+    of EMG data aligned to prompts from an `EmgRecording` instance of a
+    handwriting dataset, aligned
 
     Parameters
     ----------
     hdf5_path : Path
         Path to the HDF5 file containing the EMG recording.
     padding : tuple[int, int]
-        Padding to apply to the start and end of the recording.
-    transform : Transform
-        A composed sequence of transforms that takes
-        a window/slice of `EmgRecording` in the form of a numpy
-        structured array and returns a `torch.Tensor` instance.
+        Padding to apply to the start and end of each window.
+        If there isn't enough data before and after the window
+        to fill the padding, zero padding is used.
+    transform : HandwritingTransform
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a prompt string, and
+        returns a dictionary with "emg" and "prompts" keys.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
         An optional function that takes an EMG tensor and returns
         an augmented EMG tensor. See augmentation.py.
-    jitter : bool, optional
-        If True, randomly jitter the offset of each window.
-        Use this for training time variability.
     concatenate_prompts : bool, optional
         If True, prompts shorter than min_duration_s will be concatenated together.
         Only prompts that follows one another will be concatenated.
@@ -276,9 +276,8 @@ class HandwritingEmgDataset(torch.utils.data.Dataset):
         self,
         hdf5_path: Path,
         padding: tuple[int, int],
-        transform: Transform,
+        transform: HandwritingTransform,
         emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None = None,
-        jitter: bool = False,
         concatenate_prompts: bool = False,
         min_duration_s: float = 0.0,
     ) -> None:
@@ -286,7 +285,6 @@ class HandwritingEmgDataset(torch.utils.data.Dataset):
         self.left_padding, self.right_padding = padding
         self.transform = transform
         self.emg_augmentation = emg_augmentation
-        self.jitter = jitter
         self.concatenate_prompts = concatenate_prompts
         self.min_duration_s = min_duration_s
 
@@ -345,25 +343,26 @@ class HandwritingEmgDataset(torch.utils.data.Dataset):
         return self._emg_recording
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor] | None:
+        # Get prompt
         prompt_row = self.prompts.iloc[idx]
 
+        # Extract window of EMG aligned to this prompt
         start_idx, end_idx = self.emg_recording.get_idx_slice(
             start_t=prompt_row.start, end_t=prompt_row.end
         )
+        start = max(start_idx - self.left_padding, 0)
+        end = min(end_idx + self.right_padding, len(self.emg_recording))
+        timeseries = self.emg_recording[start:end]
 
-        timeseries = self.emg_recording[
-            max(start_idx - self.left_padding, 0) : min(
-                end_idx + self.right_padding, len(self.emg_recording)
-            )
-        ]
-        if start_idx < self.left_padding or end_idx + self.right_padding > len(
-            self.emg_recording
-        ):
-            zero_pad = (
-                max(self.left_padding - start_idx, 0),
-                max(end_idx + self.right_padding - len(self.emg_recording), 0),
-            )
-            timeseries = np.pad(timeseries, zero_pad)
+        # If not enough data before and after the prompt to fill the
+        # window, add padding
+        start_pad = 0
+        end_pad = 0
+        if start == 0:
+            start_pad = self.left_padding - start_idx
+        if end == len(self.emg_recording):
+            end_pad = end_idx + self.right_padding - len(self.emg_recording)
+        timeseries = np.pad(timeseries, (start_pad, end_pad))
 
         # Extract EMG tensor corresponding to the window
         datum: dict[str, torch.Tensor | str] = self.transform(
@@ -402,10 +401,9 @@ def make_dataset(
         A dictionary mapping dataset names to their respective partitions.
         Each partition is a list of tuples indicating start and end times.
     transform : Transform
-        A composed sequence of transforms that takes
-        a window/slice of `EmgRecording` in the form of a numpy
-        structured array and a pandas DataFrame with prompt labels
-        and times, and returns a `torch.Tensor` instance.
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a pandas DataFrame with
+        prompt labels and times, and returns a `torch.Tensor` instance.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor] | None
         An optional function that takes an EMG tensor and returns
         an augmented EMG tensor.
@@ -450,4 +448,64 @@ def make_dataset(
                     emg_augmentation=emg_augmentation,
                 )
             )
+    return ConcatDataset(datasets)
+
+
+def make_handwriting_dataset(
+    data_location: str,
+    dataset_names: list[str],
+    transform: HandwritingTransform,
+    emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None,
+    padding: tuple[int, int],
+    concatenate_prompts: bool,
+    min_duration_s: float,
+) -> ConcatDataset:
+    """
+    Creates a concatenated dataset of EMG data windows aligned to handwriting prompts.
+
+    This function iterates over the provided datasets and their respective partitions,
+    creating a `WindowedEmgDataset` for each partition. If a partition is too short
+    for the specified window length, it is skipped. The resulting datasets are combined
+    into a `ConcatDataset`, which is returned.
+
+    Parameters
+    ----------
+    data_location : str
+        Path to where the dataset files are stored.
+    dataset_names : list[str]
+        Names of dataset files to include.
+    transform : HandwritingTransform
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a prompt string, and
+        returns a dictionary with "emg" and "prompts" keys.
+    emg_augmentation : Callable[[torch.Tensor], torch.Tensor] | None
+        An optional function that takes an EMG tensor and returns
+        an augmented EMG tensor.
+    padding : tuple[int, int]
+        Padding to apply to the start and end of each window.
+        If there isn't enough data before and after the window
+        to fill the padding, zero padding is used.
+    concatenate_prompts : bool, optional
+        If True, prompts shorter than min_duration_s will be concatenated together.
+        Only prompts that follows one another will be concatenated.
+    min_duration_s : float, optional
+        Minimum duration of prompts to concatenate (seconds).
+        Only used if concatenate_prompts is True.
+
+    Returns
+    -------
+    ConcatDataset
+        A concatenated dataset of `HandwritingEmgDataset` instances.
+    """
+    datasets = [
+        HandwritingEmgDataset(
+            get_full_dataset_path(data_location, dataset_name),
+            padding=padding,
+            transform=transform,
+            emg_augmentation=emg_augmentation,
+            concatenate_prompts=concatenate_prompts,
+            min_duration_s=min_duration_s,
+        )
+        for dataset_name in dataset_names
+    ]
     return ConcatDataset(datasets)
