@@ -127,7 +127,7 @@ def evaluate_from_checkpoint(
 
     results = {}
     results["checkpoint_path"] = checkpoint_path
-    
+
     if evaluate_validation_set:
         trainer = Trainer(
             accelerator=accelerator,
@@ -143,7 +143,9 @@ def evaluate_from_checkpoint(
     if evaluate_test_set:
         task = config.get("task")
         if task == "discrete_gestures":
-            logger.info(f"Running test-set evaluation for {task=} on cpu due to CUDNN incompatibilities with large sequence length.")
+            logger.info(
+                f"Running test-set evaluation for {task=} on cpu due to CUDNN incompatibilities with large sequence length."
+            )
             accelerator = "cpu"
 
         trainer = Trainer(

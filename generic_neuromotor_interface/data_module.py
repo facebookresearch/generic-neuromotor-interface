@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from tqdm.auto import tqdm
 
 from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 from generic_neuromotor_interface.data import (
@@ -124,7 +125,7 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         self, partition_dict: dict[str, Partitions | None], stage: str
     ) -> ConcatDataset:
         datasets = []
-        for dataset, partitions in partition_dict.items():
+        for dataset, partitions in tqdm(partition_dict.items(), total=len(partition_dict)):
             # A single partition that spans the entire dataset
             if partitions is None:
                 partitions = [(-np.inf, np.inf)]

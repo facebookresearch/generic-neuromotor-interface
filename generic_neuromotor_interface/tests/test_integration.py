@@ -323,10 +323,14 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
         print(OmegaConf.to_yaml(loaded_config))
 
         # Run eval
-        evaluate_validation_set = False  # we can skip val since it's tested during other tests
+        evaluate_validation_set = (
+            False  # we can skip val since it's tested during other tests
+        )
 
         results = evaluate_from_checkpoint(
-            loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt"), evaluate_validation_set=evaluate_validation_set
+            loaded_config,
+            str(checkpoint_dir / "model_checkpoint.ckpt"),
+            evaluate_validation_set=evaluate_validation_set,
         )
 
         # Verify that training completed successfully
