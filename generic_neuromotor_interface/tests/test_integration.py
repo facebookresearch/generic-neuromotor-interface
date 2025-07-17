@@ -177,8 +177,8 @@ def task_model_fixture(request, temp_model_dir):
     "task_model_fixture,task_dataset_dir_fixture",
     [
         ("wrist", "wrist"),
-        ("handwriting", "handwriting"),
         ("discrete_gestures", "discrete_gestures"),
+        ("handwriting", "handwriting"),
     ],
     indirect=True,
 )
@@ -199,8 +199,8 @@ def test_task_evaluate_subset_cpu(task_model_fixture, task_dataset_dir_fixture):
     "task_dataset_dir_fixture",
     [
         "wrist",
-        "handwriting",
         "discrete_gestures",
+        "handwriting",
     ],
     indirect=True,
 )
@@ -242,6 +242,13 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
         assert "val_metrics" in results
         assert "test_metrics" in results
 
+    # Check that the best checkpoint scores
+    # match expected
+    key = "real_data" if USE_REAL_DATA else "mock_data"
+    assert results["best_checkpoint_score"] == pytest.approx(
+        REFERENCE_TRAIN_VALUES[task_name][key]
+    )
+
 
 def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
     """Test end-to-end inference pipeline."""
@@ -281,3 +288,198 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
     assert results is not None
     assert "val_metrics" in results
     assert "test_metrics" in results
+
+    # Check that the results match expected
+    checkpoint_key = "real_checkpoint" if USE_REAL_CHECKPOINTS else "mock_checkpoint"
+    data_key = "real_data" if USE_REAL_DATA else "mock_data"
+    for key, metrics in results.items():
+        if key == "checkpoint_path":
+            continue
+        for metric_name, metric_value in metrics[0].items():
+            assert metric_value == pytest.approx(
+                REFERENCE_TEST_VALUES[task_name][checkpoint_key][data_key][key][
+                    metric_name
+                ]
+            )
+
+
+REFERENCE_TRAIN_VALUES = {
+    "wrist": {
+        "real_data": 0.09340763092041016,
+        "mock_data": 0.7156573534011841,
+    },
+    "discrete_gestures": {
+        "real_data": 0.11399950832128525,
+        "mock_data": 0.1666666716337204,
+    },
+    "handwriting": {
+        "real_data": 96.13899993896484,
+        "mock_data": 97.4093246459961,
+    },
+}
+
+
+REFERENCE_TEST_VALUES = {
+    "wrist": {
+        "real_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.0038713905960321426,
+                    "val_mae_deg_per_sec": 11.0907170999639,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_mae_deg_per_sec": 11.0907170999639,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.0038713905960321426,
+                    "val_mae_deg_per_sec": 11.0907170999639,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_mae_deg_per_sec": 11.0907170999639,
+                },
+            },
+        },
+        "mock_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.0038713905960321426,
+                    "val_mae_deg_per_sec": 11.0907170999639,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_mae_deg_per_sec": 11.0907170999639,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.0029304532799869776,
+                    "val_mae_deg_per_sec": 8.395130315569341,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_mae_deg_per_sec": 11.0907170999639,
+                },
+            },
+        },
+    },
+    "discrete_gestures": {
+        "real_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.0038713905960321426,
+                    "val_accuracy": 11.0907170999639,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_cler": 11.0907170999639,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.0038713905960321426,
+                    "val_accuracy": 11.0907170999639,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_cler": 11.0907170999639,
+                },
+            },
+        },
+        "mock_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.0038713905960321426,
+                    "val_accuracy": 11.0907170999639,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_cler": 11.0907170999639,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.010263126343488693,
+                    "val_accuracy": 0.556594967842102,
+                },
+                "test_metrics": {
+                    "test_loss": 0.00941223930567503,
+                    "test_cler": 0.13421496748924255,
+                },
+            },
+        },
+    },
+    "handwriting": {
+        "real_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.6563571095466614,
+                    "val/CER": 21.750322341918945,
+                    "val/IER": 5.53410530090332,
+                    "val/DER": 4.247104167938232,
+                    "val/SER": 11.969112396240234,
+                },
+                "test_metrics": {
+                    "test_loss": 5.226099491119385,
+                    "test/CER": 66.04045867919922,
+                    "test/IER": 34.10404586791992,
+                    "test/DER": 0.8670520186424255,
+                    "test/SER": 31.069364547729492,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.6563571095466614,
+                    "val/CER": 21.750322341918945,
+                    "val/IER": 5.53410530090332,
+                    "val/DER": 4.247104167938232,
+                    "val/SER": 11.969112396240234,
+                },
+                "test_metrics": {
+                    "test_loss": 5.226099491119385,
+                    "test/CER": 66.04045867919922,
+                    "test/IER": 34.10404586791992,
+                    "test/DER": 0.8670520186424255,
+                    "test/SER": 31.069364547729492,
+                },
+            },
+        },
+        "mock_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.6563571095466614,
+                    "val/CER": 21.750322341918945,
+                    "val/IER": 5.53410530090332,
+                    "val/DER": 4.247104167938232,
+                    "val/SER": 11.969112396240234,
+                },
+                "test_metrics": {
+                    "test_loss": 5.226099491119385,
+                    "test/CER": 66.04045867919922,
+                    "test/IER": 34.10404586791992,
+                    "test/DER": 0.8670520186424255,
+                    "test/SER": 31.069364547729492,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.6563571095466614,
+                    "val/CER": 21.750322341918945,
+                    "val/IER": 5.53410530090332,
+                    "val/DER": 4.247104167938232,
+                    "val/SER": 11.969112396240234,
+                },
+                "test_metrics": {
+                    "test_loss": 5.226099491119385,
+                    "test/CER": 66.04045867919922,
+                    "test/IER": 34.10404586791992,
+                    "test/DER": 0.8670520186424255,
+                    "test/SER": 31.069364547729492,
+                },
+            },
+        },
+    },
+}
