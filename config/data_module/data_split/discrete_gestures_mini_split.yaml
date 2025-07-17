@@ -1,8 +1,11 @@
+# One dataset each for train, val, and test
+# Useful for quick testing
+
 _target_: generic_neuromotor_interface.data.DataSplit
 
 train:
-  discrete_gestures_user_000_dataset_000: null
+  discrete_gestures_user_000_dataset_000: null # null means use the entire dataset (no partitioning)
 val:
-  discrete_gestures_user_001_dataset_000: null
+  discrete_gestures_user_001_dataset_000: null # null means use the entire dataset (no partitioning)
 test:
-  discrete_gestures_user_002_dataset_000: null
+  discrete_gestures_user_002_dataset_000: null # null means use the entire dataset (no partitioning)
