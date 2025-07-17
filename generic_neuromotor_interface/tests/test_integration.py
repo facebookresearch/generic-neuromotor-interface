@@ -56,21 +56,24 @@ def temp_model_dir():
 
 def get_mock_datasets(task_name, temp_data_dir):
     print(f"Creating mock datasets for {task_name} in {temp_data_dir}")
+
+    # General fixed parameters
+    num_channels = 16
+
+    # Set task-specific parameters
+    if task_name == "wrist":
+        # NOTE: to accommodate for wrist_mini_split.yml hard coding
+        start_time = 1713966045.0
+        num_samples = 200 * 2000
+    else:
+        start_time = 1600000000.0
+        num_samples = 1000
+
+    if task_name == "discrete_gestures":
+        num_samples = 32_000  # NOTE: needed for 16_000 window size
+
+    # Generate mock data for three users
     for user in ["000", "001", "002"]:
-        # Set some per-task specific parameters
-        if task_name == "wrist":
-            # NOTE: to accommodate for wrist_mini_split.yml hard coding
-            start_time = 1713966045.0
-            num_samples = 200 * 2000
-            num_channels = 16
-        else:
-            start_time = 1600000000.0
-            num_samples = 1000
-            num_channels = 16
-
-        if task_name == "discrete_gestures":
-            num_samples = 32_000  # NOTE: needed for 16_000 window size
-
         _file = create_mock_dataset(
             task_name=task_name,
             output_path=temp_data_dir,
@@ -79,6 +82,7 @@ def get_mock_datasets(task_name, temp_data_dir):
             num_prompts=9,
             num_channels=num_channels,
             output_file_name=f"{task_name}_user_{user}_dataset_000.hdf5",
+            random_seed=0,
         )
         assert _file is not None
         assert _file.exists()
@@ -120,19 +124,23 @@ def get_mock_checkpoint_dir(task_name, temp_model_dir):
         config = compose(
             config_name=task_name,
         )
-        model: pl.LightningModule = hydra.utils.instantiate(
-            config.lightning_module, _convert_="all"
-        )
-        trainer_kwargs: dict[str, Any] = hydra.utils.instantiate(
-            config.trainer, _convert_="all"
-        )
-        # We need to attach the model to a trainer to call save_checkpoint
-        trainer = pl.Trainer(**trainer_kwargs)
-        try:
-            trainer.fit(model)
-        except ValueError:
-            pass
-        trainer.save_checkpoint(model_dir / "model_checkpoint.ckpt")
+
+    # Initialize model
+    pl.seed_everything(0)
+    model: pl.LightningModule = hydra.utils.instantiate(
+        config.lightning_module, _convert_="all"
+    )
+
+    # We need to attach the model to a trainer to call save_checkpoint
+    trainer_kwargs: dict[str, Any] = hydra.utils.instantiate(
+        config.trainer, _convert_="all"
+    )
+    trainer = pl.Trainer(**trainer_kwargs)
+    try:
+        trainer.fit(model)
+    except ValueError:
+        pass
+    trainer.save_checkpoint(model_dir / "model_checkpoint.ckpt")
 
     # Dump the config to a yaml file
     with open(model_dir / "model_config.yaml", "w") as f:
@@ -173,8 +181,8 @@ def task_model_fixture(request, temp_model_dir):
     "task_model_fixture,task_dataset_dir_fixture",
     [
         ("wrist", "wrist"),
-        ("handwriting", "handwriting"),
         ("discrete_gestures", "discrete_gestures"),
+        ("handwriting", "handwriting"),
     ],
     indirect=True,
 )
@@ -195,8 +203,8 @@ def test_task_evaluate_subset_cpu(task_model_fixture, task_dataset_dir_fixture):
     "task_dataset_dir_fixture",
     [
         "wrist",
-        "handwriting",
         "discrete_gestures",
+        "handwriting",
     ],
     indirect=True,
 )
@@ -226,17 +234,17 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             ],
         )
 
-        # Run training with minimal epochs
-        results = train(config)
+    # Run training with minimal epochs
+    results = train(config)
 
-        # Verify that training completed successfully
-        assert results is not None
-        assert "best_checkpoint_path" in results
-        assert "best_checkpoint_score" in results
+    # Verify that training completed successfully
+    assert results is not None
+    assert "best_checkpoint_path" in results
+    assert "best_checkpoint_score" in results
 
-        if config.eval:
-            assert "val_metrics" in results
-            assert "test_metrics" in results
+    if config.eval:
+        assert "val_metrics" in results
+        assert "test_metrics" in results
 
 
 def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
@@ -258,20 +266,22 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
             ],
         )
 
-        loaded_config = OmegaConf.load(checkpoint_dir / "model_config.yaml")
-        loaded_config.data_location = base_config.data_location
-        loaded_config.data_module.data_location = base_config.data_module.data_location
-        loaded_config.data_module.data_split = base_config.data_module.data_split
-        loaded_config.trainer.accelerator = base_config.trainer.accelerator
+    # Load model config in checkpoint_dir and copy over interpolated values
+    # from the composed base hydra config
+    loaded_config = OmegaConf.load(checkpoint_dir / "model_config.yaml")
+    loaded_config.data_location = base_config.data_location
+    loaded_config.data_module.data_location = base_config.data_module.data_location
+    loaded_config.data_module.data_split = base_config.data_module.data_split
+    loaded_config.trainer.accelerator = base_config.trainer.accelerator
 
-        assert isinstance(loaded_config, DictConfig)
+    assert isinstance(loaded_config, DictConfig)
 
-        # Run training with minimal epochs
-        results = evaluate_from_checkpoint(
-            loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt")
-        )
+    # Run training with minimal epochs
+    results = evaluate_from_checkpoint(
+        loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt")
+    )
 
-        # Verify that training completed successfully
-        assert results is not None
-        assert "val_metrics" in results
-        assert "test_metrics" in results
+    # Verify that training completed successfully
+    assert results is not None
+    assert "val_metrics" in results
+    assert "test_metrics" in results
