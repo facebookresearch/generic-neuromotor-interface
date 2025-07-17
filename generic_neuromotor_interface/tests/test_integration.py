@@ -73,8 +73,8 @@ def temp_data_dir():
 @pytest.fixture(scope="module")
 def temp_model_dir():
     """Create a temporary directory for test data."""
-    if USE_PERSISTENT_TEMP_DIR:
-        path = os.path.join(tempfile.gettempdir(), "emg_test_data_cache")
+    if USE_PERSISTENT_TEMP_DIR and USE_REAL_DATA:
+        path = Path(tempfile.gettempdir()) / "emg_test_data_cache"
         print(f"Using persistent temp dir at: {path=}")
         yield path
     else:
