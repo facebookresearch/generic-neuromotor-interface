@@ -1,0 +1,61 @@
+# Manually trigger a workflow run that uses prod data and checkpoints
+# (uses real [small] dataset and real checkpoints)
+
+# Uses a GPU Runner and tests cuda, real_data, small subsets
+
+name: Manual Neuromotor Integration Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: 4-core-ubuntu-gpu-t4
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v3.0.4
+        with:
+          auto-update-conda: true
+          python-version: "3.12"
+          miniconda-version: "latest"
+          activate-environment: neuromotor
+          environment-file: environment.yml
+
+      - name: Install local package
+        shell: bash -el {0}
+        run: |
+          conda activate neuromotor
+          pip install -e .
+
+      - name: Run pre-commit checks
+        shell: bash -el {0}
+        run: |
+          conda activate neuromotor
+          pre-commit run --all-files
+
+      - name: Lint with flake8
+        shell: bash -el {0}
+        run: |
+          pip install flake8
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run tests
+        shell: bash -el {0}
+        run: |
+          conda activate neuromotor
+          pytest
+
+      - name: Run integration tests (with real data + checkpoints)
+        shell: bash -el {0}
+        run: |
+          conda activate neuromotor
+          pytest -m "integration and not full_data and cuda" \
+            -vv \
+            --durations=10 \
+            -rA
