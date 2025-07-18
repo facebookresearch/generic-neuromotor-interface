@@ -428,6 +428,15 @@ def _test_task_evaluate_mini_subset_cpu(
         loaded_config.data_module.data_split = base_config.data_module.data_split
         loaded_config.trainer.accelerator = base_config.trainer.accelerator
 
+        # Adjust batch size for GPU runners available in GitHub CI
+        if use_cuda:
+            if task_name == "wrist":
+                loaded_config.data_module.batch_size = 128  # half of prod batch size
+            elif task_name == "discrete_gestures":
+                loaded_config.data_module.batch_size = 32  # half of prod batch size
+            else:
+                pass  # handwriting does not need to be adjusted
+
         assert isinstance(loaded_config, DictConfig)
         print(OmegaConf.to_yaml(loaded_config))
 
