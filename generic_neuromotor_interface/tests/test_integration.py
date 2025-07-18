@@ -181,7 +181,7 @@ def task_model_fixture(task_name, use_real_checkpoints, create_temp_dir):
     "use_real_checkpoints",
     [
         False,
-        pytest.param(True, marks=pytest.mark.real_checkpoints),
+        pytest.param(True, marks=pytest.mark.real_data),
     ],
     ids=lambda val: f"real_checkpoints={val}",
 )
