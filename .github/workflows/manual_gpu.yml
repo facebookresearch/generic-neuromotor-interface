@@ -7,6 +7,7 @@ name: Manual Neuromotor Integration Test (GPU)
 
 on:
   workflow_dispatch:
+  pull-request:
 
 jobs:
   build-linux:
