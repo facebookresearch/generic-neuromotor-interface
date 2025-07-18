@@ -3,10 +3,9 @@
 
 # Uses a GPU Runner and tests cuda, real_data, small subsets
 
-name: Manual Neuromotor Integration Test (GPU)
+name: GPU Manual Tests
 
 on:
-  workflow_dispatch:
   pull_request:
 
 jobs:
