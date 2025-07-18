@@ -181,7 +181,7 @@ def task_model_fixture(task_name, use_real_checkpoints, create_temp_dir):
     "use_real_checkpoints",
     [
         False,
-        pytest.param(True, marks=pytest.mark.real_data),
+        pytest.param(True, marks=pytest.mark.real_checkpoints),
     ],
     ids=lambda val: f"real_checkpoints={val}",
 )
@@ -218,6 +218,9 @@ def test_task_evaluate_from_checkpoint(
     # Skip invalid combinations
     if use_full_data and not use_real_data:
         pytest.skip("use_full_data=True requires use_real_data=True")
+
+    if use_real_data and not use_real_checkpoints:
+        pytest.skip("skipping fake checkpoints + real data combo; redundant")
 
     model_dir = task_model_fixture["model_dir"]
     dataset_dir = task_dataset_dir_fixture["dataset_dir"]
