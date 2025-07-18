@@ -35,8 +35,8 @@ from omegaconf import DictConfig, OmegaConf
 
 
 # for now, we keep these os OS env vars for manual modification
-USE_REAL_DATA = os.environ.get("USE_REAL_DATA", False)
-USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", False)
+USE_REAL_DATA = os.environ.get("USE_REAL_DATA", "False").lower() == "true"
+USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", "False").lower() == "true"
 
 
 # Define fixtures for integration tests
@@ -56,21 +56,24 @@ def temp_model_dir():
 
 def get_mock_datasets(task_name, temp_data_dir):
     print(f"Creating mock datasets for {task_name} in {temp_data_dir}")
+
+    # General fixed parameters
+    num_channels = 16
+
+    # Set task-specific parameters
+    if task_name == "wrist":
+        # NOTE: to accommodate for wrist_mini_split.yml hard coding
+        start_time = 1713966045.0
+        num_samples = 200 * 2000
+    else:
+        start_time = 1600000000.0
+        num_samples = 1000
+
+    if task_name == "discrete_gestures":
+        num_samples = 32_000  # NOTE: needed for 16_000 window size
+
+    # Generate mock data for three users
     for user in ["000", "001", "002"]:
-        # Set some per-task specific parameters
-        if task_name == "wrist":
-            # NOTE: to accommodate for wrist_mini_split.yml hard coding
-            start_time = 1713966045.0
-            num_samples = 200 * 2000
-            num_channels = 16
-        else:
-            start_time = 1600000000.0
-            num_samples = 1000
-            num_channels = 16
-
-        if task_name == "discrete_gestures":
-            num_samples = 32_000  # NOTE: needed for 16_000 window size
-
         _file = create_mock_dataset(
             task_name=task_name,
             output_path=temp_data_dir,
@@ -79,6 +82,7 @@ def get_mock_datasets(task_name, temp_data_dir):
             num_prompts=9,
             num_channels=num_channels,
             output_file_name=f"{task_name}_user_{user}_dataset_000.hdf5",
+            random_seed=0,
         )
         assert _file is not None
         assert _file.exists()
@@ -120,19 +124,23 @@ def get_mock_checkpoint_dir(task_name, temp_model_dir):
         config = compose(
             config_name=task_name,
         )
-        model: pl.LightningModule = hydra.utils.instantiate(
-            config.lightning_module, _convert_="all"
-        )
-        trainer_kwargs: dict[str, Any] = hydra.utils.instantiate(
-            config.trainer, _convert_="all"
-        )
-        # We need to attach the model to a trainer to call save_checkpoint
-        trainer = pl.Trainer(**trainer_kwargs)
-        try:
-            trainer.fit(model)
-        except ValueError:
-            pass
-        trainer.save_checkpoint(model_dir / "model_checkpoint.ckpt")
+
+    # Initialize model
+    pl.seed_everything(0)
+    model: pl.LightningModule = hydra.utils.instantiate(
+        config.lightning_module, _convert_="all"
+    )
+
+    # We need to attach the model to a trainer to call save_checkpoint
+    trainer_kwargs: dict[str, Any] = hydra.utils.instantiate(
+        config.trainer, _convert_="all"
+    )
+    trainer = pl.Trainer(**trainer_kwargs)
+    try:
+        trainer.fit(model)
+    except ValueError:
+        pass
+    trainer.save_checkpoint(model_dir / "model_checkpoint.ckpt")
 
     # Dump the config to a yaml file
     with open(model_dir / "model_config.yaml", "w") as f:
@@ -173,8 +181,8 @@ def task_model_fixture(request, temp_model_dir):
     "task_model_fixture,task_dataset_dir_fixture",
     [
         ("wrist", "wrist"),
-        ("handwriting", "handwriting"),
         ("discrete_gestures", "discrete_gestures"),
+        ("handwriting", "handwriting"),
     ],
     indirect=True,
 )
@@ -195,8 +203,8 @@ def test_task_evaluate_subset_cpu(task_model_fixture, task_dataset_dir_fixture):
     "task_dataset_dir_fixture",
     [
         "wrist",
-        "handwriting",
         "discrete_gestures",
+        "handwriting",
     ],
     indirect=True,
 )
@@ -226,17 +234,24 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             ],
         )
 
-        # Run training with minimal epochs
-        results = train(config)
+    # Run training with minimal epochs
+    results = train(config)
 
-        # Verify that training completed successfully
-        assert results is not None
-        assert "best_checkpoint_path" in results
-        assert "best_checkpoint_score" in results
+    # Verify that training completed successfully
+    assert results is not None
+    assert "best_checkpoint_path" in results
+    assert "best_checkpoint_score" in results
 
-        if config.eval:
-            assert "val_metrics" in results
-            assert "test_metrics" in results
+    if config.eval:
+        assert "val_metrics" in results
+        assert "test_metrics" in results
+
+    # Check that the best checkpoint scores
+    # match expected
+    key = "real_data" if USE_REAL_DATA else "mock_data"
+    assert results["best_checkpoint_score"] == pytest.approx(
+        REFERENCE_TRAIN_RESULTS[task_name][key]
+    )
 
 
 def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
@@ -258,20 +273,217 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
             ],
         )
 
-        loaded_config = OmegaConf.load(checkpoint_dir / "model_config.yaml")
-        loaded_config.data_location = base_config.data_location
-        loaded_config.data_module.data_location = base_config.data_module.data_location
-        loaded_config.data_module.data_split = base_config.data_module.data_split
-        loaded_config.trainer.accelerator = base_config.trainer.accelerator
+    # Load model config in checkpoint_dir and copy over interpolated values
+    # from the composed base hydra config
+    loaded_config = OmegaConf.load(checkpoint_dir / "model_config.yaml")
+    loaded_config.data_location = base_config.data_location
+    loaded_config.data_module.data_location = base_config.data_module.data_location
+    loaded_config.data_module.data_split = base_config.data_module.data_split
+    loaded_config.trainer.accelerator = base_config.trainer.accelerator
 
-        assert isinstance(loaded_config, DictConfig)
+    assert isinstance(loaded_config, DictConfig)
 
-        # Run training with minimal epochs
-        results = evaluate_from_checkpoint(
-            loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt")
-        )
+    # Run training with minimal epochs
+    results = evaluate_from_checkpoint(
+        loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt")
+    )
 
-        # Verify that training completed successfully
-        assert results is not None
-        assert "val_metrics" in results
-        assert "test_metrics" in results
+    # Verify that training completed successfully
+    assert results is not None
+    assert "val_metrics" in results
+    assert "test_metrics" in results
+
+    # Check that the results match expected
+    checkpoint_key = "real_checkpoint" if USE_REAL_CHECKPOINTS else "mock_checkpoint"
+    data_key = "real_data" if USE_REAL_DATA else "mock_data"
+    for key, metrics in results.items():
+        if key == "checkpoint_path":
+            continue
+        for metric_name, metric_value in metrics[0].items():
+            assert metric_value == pytest.approx(
+                REFERENCE_EVALUATE_RESULTS[task_name][checkpoint_key][data_key][key][
+                    metric_name
+                ]
+            )
+
+
+REFERENCE_TRAIN_RESULTS = {
+    "wrist": {
+        "real_data": 0.09340763092041016,
+        "mock_data": 0.7156573534011841,
+    },
+    "discrete_gestures": {
+        "real_data": 0.11399950832128525,
+        "mock_data": 0.1428571492433548,
+    },
+    "handwriting": {
+        "real_data": 96.13899993896484,
+        "mock_data": 98.1927719116211,
+    },
+}
+
+
+REFERENCE_EVALUATE_RESULTS = {
+    "wrist": {
+        "real_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.0029304532799869776,
+                    "val_mae_deg_per_sec": 8.395130315569341,
+                },
+                "test_metrics": {
+                    "test_loss": 0.0038713905960321426,
+                    "test_mae_deg_per_sec": 11.0907170999639,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.6564533114433289,
+                    "val_mae_deg_per_sec": 1880.6002096544867,
+                },
+                "test_metrics": {
+                    "test_loss": 0.6552098393440247,
+                    "test_mae_deg_per_sec": 1877.0379244928663,
+                },
+            },
+        },
+        "mock_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_loss": 0.053083404898643494,
+                    "val_mae_deg_per_sec": 152.07275439936708,
+                },
+                "test_metrics": {
+                    "test_loss": 0.05673551186919212,
+                    "test_mae_deg_per_sec": 162.53526893095486,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.6570016741752625,
+                    "val_mae_deg_per_sec": 1882.1711531635895,
+                },
+                "test_metrics": {
+                    "test_loss": 0.6555290222167969,
+                    "test_mae_deg_per_sec": 1877.952316068002,
+                },
+            },
+        },
+    },
+    "discrete_gestures": {
+        "real_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_accuracy": 0.556594967842102,
+                    "val_loss": 0.010263126343488693,
+                },
+                "test_metrics": {
+                    "test_cler": 0.13421496748924255,
+                    "test_loss": 0.00941223930567503,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_accuracy": 0.125,
+                    "val_loss": 0.030532492324709892,
+                },
+                "test_metrics": {
+                    "test_cler": 0.0,
+                    "test_loss": 0.030042458325624466,
+                },
+            },
+        },
+        "mock_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val_accuracy": 0.1140170618891716,
+                    "val_loss": 0.7204136848449707,
+                },
+                "test_metrics": {
+                    "test_cler": 0.6722221970558167,
+                    "test_loss": 0.7186295390129089,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val_loss": 0.7293607592582703,
+                    "val_accuracy": 0.1428571492433548,
+                },
+                "test_metrics": {
+                    "test_loss": 0.7633956670761108,
+                    "test_cler": 0.6666666865348816,
+                },
+            },
+        },
+    },
+    "handwriting": {
+        "real_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val/CER": 21.750322341918945,
+                    "val/DER": 4.247104167938232,
+                    "val/IER": 5.53410530090332,
+                    "val/SER": 11.969112396240234,
+                    "val_loss": 0.6563571095466614,
+                },
+                "test_metrics": {
+                    "test/CER": 66.04045867919922,
+                    "test/DER": 0.8670520186424255,
+                    "test/IER": 34.10404586791992,
+                    "test/SER": 31.069364547729492,
+                    "test_loss": 5.226099491119385,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val/CER": 100.0,
+                    "val/DER": 0.0,
+                    "val/IER": 100.0,
+                    "val/SER": 0.0,
+                    "val_loss": 0.0,
+                },
+                "test_metrics": {
+                    "test/CER": 100.0,
+                    "test/DER": 0.0,
+                    "test/IER": 100.0,
+                    "test/SER": 0.0,
+                    "test_loss": 0.0,
+                },
+            },
+        },
+        "mock_checkpoint": {
+            "real_data": {
+                "val_metrics": {
+                    "val/CER": 104.24710083007812,
+                    "val/DER": 5.276705265045166,
+                    "val/IER": 84.04118347167969,
+                    "val/SER": 14.929214477539062,
+                    "val_loss": 49.96033477783203,
+                },
+                "test_metrics": {
+                    "test/CER": 103.68497467041016,
+                    "test/DER": 4.190751552581787,
+                    "test/IER": 83.16474151611328,
+                    "test/SER": 16.329479217529297,
+                    "test_loss": 18.270498275756836,
+                },
+            },
+            "mock_data": {
+                "val_metrics": {
+                    "val/CER": 96.38554382324219,
+                    "val/DER": 0.0,
+                    "val/IER": 94.57831573486328,
+                    "val/SER": 1.807228922843933,
+                    "val_loss": 0.0,
+                },
+                "test_metrics": {
+                    "test/CER": 96.38554382324219,
+                    "test/DER": 0.0,
+                    "test/IER": 94.57831573486328,
+                    "test/SER": 1.807228922843933,
+                    "test_loss": 0.0,
+                },
+            },
+        },
+    },
+}
