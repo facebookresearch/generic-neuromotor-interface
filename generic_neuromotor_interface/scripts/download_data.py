@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -34,6 +35,18 @@ def download_data(task_name, dataset, emg_data_dir):
     # Create directory
     data_dir = ensure_dir(Path(emg_data_dir))
 
+    # Check flag file (has data already been downloaded?)
+    flag_file = Path(data_dir / f".data_downloaded_{dataset}_{task_name}")
+    if flag_file.exists():
+        modification_timestamp = flag_file.stat().st_mtime
+        last_modified_datetime = datetime.fromtimestamp(modification_timestamp)
+        print(
+            f"Found data downloaded for {task_name=}, {dataset=} at {data_dir=}. "
+            f"Last modified: {last_modified_datetime}. "
+            "Assuming data already downloaded!"
+        )
+        return data_dir
+
     # Download the tar file
     tar_filename = f"{task_name}_{dataset}.tar"
     tar_path = data_dir / tar_filename
@@ -51,6 +64,9 @@ def download_data(task_name, dataset, emg_data_dir):
     download_file(
         corpus_url, corpus_path, f"Downloading {task_name} corpus spreadsheet"
     )
+
+    # Touch the flag file to signal data was downloaded
+    flag_file.touch()
 
     print(f"Data for {task_name} ({dataset}) downloaded and extracted to {data_dir}")
     return data_dir

@@ -16,12 +16,13 @@ Regular tests can be run with:
     pytest
 """
 
-import os
 import tempfile
+
 from pathlib import Path
 from typing import Any
 
 import hydra
+import numpy as np
 
 import pytest
 import pytorch_lightning as pl
@@ -34,50 +35,29 @@ from hydra import compose, initialize_config_dir
 from omegaconf import DictConfig, OmegaConf
 
 
-# for now, we keep these os OS env vars for manual modification
-USE_REAL_DATA = os.environ.get("USE_REAL_DATA", False)
-USE_REAL_CHECKPOINTS = os.environ.get("USE_REAL_CHECKPOINTS", False)
-
-
 # Define fixtures for integration tests
-@pytest.fixture(scope="module")
-def temp_data_dir():
-    """Create a temporary directory for test data."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
-
-
-@pytest.fixture(scope="module")
-def temp_model_dir():
-    """Create a temporary directory for test data."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
+@pytest.fixture(scope="function")
+def create_temp_dir(use_persistent_temp_dir, use_real_data):
+    """Create a temporary directory based on parameters."""
+    if use_persistent_temp_dir and use_real_data:
+        path = Path(tempfile.gettempdir()) / "emg_test_data_cache"
+        print(f"Using persistent temp dir at: {path=}")
+        yield path
+    else:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            yield Path(temp_dir)
 
 
 def get_mock_datasets(task_name, temp_data_dir):
     print(f"Creating mock datasets for {task_name} in {temp_data_dir}")
     for user in ["000", "001", "002"]:
-        # Set some per-task specific parameters
-        if task_name == "wrist":
-            # NOTE: to accommodate for wrist_mini_split.yml hard coding
-            start_time = 1713966045.0
-            num_samples = 200 * 2000
-            num_channels = 16
-        else:
-            start_time = 1600000000.0
-            num_samples = 1000
-            num_channels = 16
-
-        if task_name == "discrete_gestures":
-            num_samples = 32_000  # NOTE: needed for 16_000 window size
+        num_samples = 32_000  # NOTE: needed for 16_000 window size discrete_gestures
 
         _file = create_mock_dataset(
             task_name=task_name,
             output_path=temp_data_dir,
-            start_time=start_time,
             num_samples=num_samples,
             num_prompts=9,
-            num_channels=num_channels,
             output_file_name=f"{task_name}_user_{user}_dataset_000.hdf5",
         )
         assert _file is not None
@@ -87,14 +67,22 @@ def get_mock_datasets(task_name, temp_data_dir):
     return temp_data_dir
 
 
-@pytest.fixture(scope="module")
-def task_dataset_dir_fixture(request, temp_data_dir):
+@pytest.fixture(scope="function")
+def task_dataset_dir_fixture(task_name, use_real_data, use_full_data, create_temp_dir):
     """Create a sample dataset for integration tests."""
+    temp_data_dir = create_temp_dir
 
-    task_name = request.param
+    # Validate configuration
+    if use_full_data and not use_real_data:
+        pytest.skip(
+            f"Invalid configuration: use_full_data={use_full_data} but "
+            f"use_real_data={use_real_data}. "
+            "use_full_data should only be used with use_real_data=True"
+        )
 
-    if USE_REAL_DATA:
-        downloaded_dir = download_data(task_name, "small_subset", temp_data_dir)
+    if use_real_data:
+        dataset_subset = "small_subset" if not use_full_data else "full_data"
+        downloaded_dir = download_data(task_name, dataset_subset, temp_data_dir)
         assert downloaded_dir is not None
         assert downloaded_dir.exists()
     else:
@@ -142,17 +130,14 @@ def get_mock_checkpoint_dir(task_name, temp_model_dir):
 
 
 # Fixture for evaluation tests
-@pytest.fixture(scope="module")
-def task_model_fixture(request, temp_model_dir):
+@pytest.fixture(scope="function")
+def task_model_fixture(task_name, use_real_checkpoints, create_temp_dir):
     """
     Fixture that provides task-specific model data for evaluation tests.
-
-    The request.param should be the task name
-    (e.g., 'wrist', 'handwriting', 'discrete_gestures').
     """
-    task_name = request.param
+    temp_model_dir = create_temp_dir
 
-    if USE_REAL_CHECKPOINTS:
+    if use_real_checkpoints:
         # Download the model checkpoint
         model_dir = download_models(task_name, temp_model_dir)
     else:
@@ -170,48 +155,170 @@ def task_model_fixture(request, temp_model_dir):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "task_model_fixture,task_dataset_dir_fixture",
+    "use_real_data",
     [
-        ("wrist", "wrist"),
-        ("handwriting", "handwriting"),
-        ("discrete_gestures", "discrete_gestures"),
+        False,
+        pytest.param(True, marks=pytest.mark.real_data),
     ],
-    indirect=True,
+    ids=lambda val: f"real_data={val}",
 )
-def test_task_evaluate_subset_cpu(task_model_fixture, task_dataset_dir_fixture):
-    """
-    Test task evaluation using indirect parameterization.
-    """
-    task_name = task_model_fixture["task_name"]
-    model_dir = task_model_fixture["model_dir"]
-    dataset_dir = task_dataset_dir_fixture["dataset_dir"]
-    assert task_name == task_dataset_dir_fixture["task_name"]
-
-    _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, model_dir)
-
-
-@pytest.mark.integration
 @pytest.mark.parametrize(
-    "task_dataset_dir_fixture",
+    "use_full_data",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.full_data),
+    ],
+    ids=lambda val: f"full_data={val}",
+)
+@pytest.mark.parametrize(
+    "use_persistent_temp_dir",
+    [
+        True,
+    ],
+    ids=lambda val: f"persistent_temp_dir={val}",
+)
+@pytest.mark.parametrize(
+    "use_real_checkpoints",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.real_checkpoints),
+    ],
+    ids=lambda val: f"real_checkpoints={val}",
+)
+@pytest.mark.parametrize(
+    "use_cuda",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.cuda),
+    ],
+    ids=lambda val: f"cuda={val}",
+)
+@pytest.mark.parametrize(
+    "task_name",
     [
         "wrist",
         "handwriting",
         "discrete_gestures",
     ],
-    indirect=True,
+    ids=lambda val: f"task={val}",
 )
-def test_task_train_subset_cpu(task_dataset_dir_fixture):
+def test_task_evaluate_from_checkpoint(
+    use_real_data,
+    use_full_data,
+    use_persistent_temp_dir,
+    use_real_checkpoints,
+    use_cuda,
+    task_name,
+    task_model_fixture,
+    task_dataset_dir_fixture,
+):
     """
-    Test task training using indirect parameterization.
+    Test task evaluation using direct parameterization.
     """
-    task_name = task_dataset_dir_fixture["task_name"]
+    # Skip invalid combinations
+    if use_full_data and not use_real_data:
+        pytest.skip("use_full_data=True requires use_real_data=True")
+
+    model_dir = task_model_fixture["model_dir"]
+    dataset_dir = task_dataset_dir_fixture["dataset_dir"]
+
+    print(
+        f"Using configuration: use_real_data={use_real_data} "
+        f"use_full_data={use_full_data} "
+        f"use_real_checkpoints={use_real_checkpoints} "
+        f"use_cuda={use_cuda}"
+    )
+
+    _test_task_evaluate_mini_subset_cpu(
+        task_name,
+        dataset_dir,
+        model_dir,
+        use_full_data=use_full_data,
+        use_cuda=use_cuda,
+        use_real_checkpoints=use_real_checkpoints,
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "use_real_data",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.real_data),
+    ],
+    ids=lambda val: f"real_data={val}",
+)
+@pytest.mark.parametrize(
+    "use_full_data",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.full_data),
+    ],
+    ids=lambda val: f"full_data={val}",
+)
+@pytest.mark.parametrize(
+    "use_persistent_temp_dir",
+    [
+        True,
+    ],
+    ids=lambda val: f"persistent_temp_dir={val}",
+)
+@pytest.mark.parametrize(
+    "use_cuda",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.cuda),
+    ],
+    ids=lambda val: f"cuda={val}",
+)
+@pytest.mark.parametrize(
+    "task_name",
+    [
+        "wrist",
+        "handwriting",
+        "discrete_gestures",
+    ],
+    ids=lambda val: f"task={val}",
+)
+def test_task_training_loop(
+    use_real_data,
+    use_full_data,
+    use_persistent_temp_dir,
+    use_cuda,
+    task_name,
+    task_dataset_dir_fixture,
+):
+    """
+    Test task training using direct parameterization.
+    """
+    # Skip invalid combinations
+    if use_full_data and not use_real_data:
+        pytest.skip("use_full_data=True requires use_real_data=True")
+
     data_dir = task_dataset_dir_fixture["dataset_dir"]
 
-    _test_task_train_mini_subset_cpu(task_name, data_dir)
+    print(
+        f"Using configuration: use_real_data={use_real_data} "
+        f"use_full_data={use_full_data} "
+        f"use_cuda={use_cuda}"
+    )
+
+    _test_task_train_mini_subset_cpu(
+        task_name,
+        data_dir,
+        use_full_data=use_full_data,
+        use_cuda=use_cuda,
+    )
 
 
-def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
+def _test_task_train_mini_subset_cpu(
+    task_name, dataset_dir, use_full_data=False, use_cuda=False
+):
     """Test the model training pipeline for a specific task."""
+    print(
+        f"Running training test for {task_name=} {dataset_dir=} "
+        f"{use_full_data=} {use_cuda=}"
+    )
 
     config_dir = str(Path(__file__).parent.absolute() / "../../config")
     with initialize_config_dir(version_base="1.1", config_dir=config_dir):
@@ -221,9 +328,13 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             overrides=[
                 f"data_location={str(dataset_dir)}",
                 "trainer.max_epochs=1",
-                "trainer.accelerator=cpu",
-                f"data_module/data_split={task_name}_mini_split",
-            ],
+                f"trainer.accelerator={'cpu' if not use_cuda else 'cuda'}",
+            ]
+            + (
+                [f"data_module/data_split={task_name}_mini_split"]
+                if not use_full_data
+                else []
+            ),
         )
 
         # Run training with minimal epochs
@@ -239,12 +350,58 @@ def _test_task_train_mini_subset_cpu(task_name, dataset_dir):
             assert "test_metrics" in results
 
 
-def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
+def _assert_expected(actual: float, expected: float, metric_name: str, atol=1e-3):
+    delta = actual - expected
+    print(f"[{metric_name}] Got {actual=}. Expected {expected=}. Delta {delta=}")
+    np.testing.assert_allclose(actual, expected, atol=atol)
+
+
+def _check_expected_results(
+    task_name: str,
+    results: dict[str, Any],
+    use_full_data=False,
+    use_real_checkpoints=False,
+):
+    if use_full_data and use_real_checkpoints:
+        if task_name == "wrist":
+            _assert_expected(
+                actual=results["test_metrics"][0]["test_mae_deg_per_sec"],
+                expected=11.2348,
+                metric_name="wrist:test_mae_deg_per_sec",
+            )
+        elif task_name == "discrete_gestures":
+            _assert_expected(
+                actual=results["test_metrics"][0]["test_cler"],
+                expected=0.1819,
+                metric_name="discrete_gestures:test_cler",
+            )
+        elif task_name == "handwriting":
+            _assert_expected(
+                actual=results["test_metrics"][0]["test/CER"],
+                expected=30.0686,
+                metric_name="handwriting:test/CER",
+            )
+        else:
+            raise ValueError(f"Unrecogznied {task_name=}")
+
+
+def _test_task_evaluate_mini_subset_cpu(
+    task_name,
+    dataset_dir,
+    checkpoint_dir,
+    use_full_data=False,
+    use_cuda=False,
+    use_real_checkpoints=False,
+):
     """Test end-to-end inference pipeline."""
     # Test code that loads a model, runs inference on sample data,
     # and verifies the output
 
     assert task_name in {"discrete_gestures", "handwriting", "wrist"}
+    print(
+        f"Running evaluation test for {task_name=} {dataset_dir=} "
+        f"{checkpoint_dir=} {use_full_data=} {use_cuda=} {use_real_checkpoints=}"
+    )
 
     config_dir = str(Path(__file__).parent.absolute() / "../../config")
     with initialize_config_dir(version_base="1.1", config_dir=config_dir):
@@ -253,9 +410,13 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
             config_name=task_name,
             overrides=[
                 f"data_location={str(dataset_dir)}",
-                "trainer.accelerator=cpu",
-                f"data_module/data_split={task_name}_mini_split",
-            ],
+                f"trainer.accelerator={'cpu' if not use_cuda else 'cuda'}",
+            ]
+            + (
+                [f"data_module/data_split={task_name}_mini_split"]
+                if not use_full_data
+                else []
+            ),
         )
 
         loaded_config = OmegaConf.load(checkpoint_dir / "model_config.yaml")
@@ -265,13 +426,25 @@ def _test_task_evaluate_mini_subset_cpu(task_name, dataset_dir, checkpoint_dir):
         loaded_config.trainer.accelerator = base_config.trainer.accelerator
 
         assert isinstance(loaded_config, DictConfig)
+        print(OmegaConf.to_yaml(loaded_config))
 
-        # Run training with minimal epochs
+        # Run eval
+        evaluate_validation_set = (
+            False  # we can skip val since it's tested during other tests
+        )
+
         results = evaluate_from_checkpoint(
-            loaded_config, str(checkpoint_dir / "model_checkpoint.ckpt")
+            loaded_config,
+            str(checkpoint_dir / "model_checkpoint.ckpt"),
+            evaluate_validation_set=evaluate_validation_set,
         )
 
         # Verify that training completed successfully
         assert results is not None
-        assert "val_metrics" in results
+
+        if evaluate_validation_set:
+            assert "val_metrics" in results
+
         assert "test_metrics" in results
+
+        _check_expected_results(task_name, results, use_full_data, use_real_checkpoints)
