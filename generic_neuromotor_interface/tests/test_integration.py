@@ -343,7 +343,7 @@ def _test_task_train_mini_subset_cpu(
         # Adjust batch size for GPU runners available in GitHub CI
         if use_cuda:
             if task_name == "wrist":
-                config.data_module.batch_size = 128  # half of prod batch size
+                config.data_module.batch_size = 8  # reduction from prod batch size
             else:
                 pass  # handwriting and discrete gestures do not need to be adjusted
 
@@ -438,9 +438,9 @@ def _test_task_evaluate_mini_subset_cpu(
         # Adjust batch size for GPU runners available in GitHub CI
         if use_cuda:
             if task_name == "wrist":
-                loaded_config.data_module.batch_size = 128  # half of prod batch size
+                loaded_config.data_module.batch_size = 8  # reduction of prod batch size
             elif task_name == "discrete_gestures":
-                loaded_config.data_module.batch_size = 32  # half of prod batch size
+                loaded_config.data_module.batch_size = 8  # reduction of prod batch size
             else:
                 pass  # handwriting does not need to be adjusted
 
