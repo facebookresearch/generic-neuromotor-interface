@@ -6,6 +6,7 @@ defaults:
 
 # Data settings
 data_location: ~/emg_data
+task: discrete_gestures
 
 # Train settings
 seed: 0
