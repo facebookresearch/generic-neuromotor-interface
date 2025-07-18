@@ -128,12 +128,13 @@ def evaluate_from_checkpoint(
     results = {}
     results["checkpoint_path"] = checkpoint_path
 
-    if evaluate_validation_set:
-        trainer = Trainer(
-            accelerator=accelerator,
-            devices=1,
-        )
+    trainer = Trainer(
+        accelerator=accelerator,
+        devices=1,
+    )
 
+    if evaluate_validation_set:
+        # Run evaluation on the val set
         logger.info("Running validation...")
         val_results = trainer.validate(model=module, datamodule=datamodule)
         logger.info(f"Validation completed! {val_results=}")
@@ -141,19 +142,19 @@ def evaluate_from_checkpoint(
         results["val_metrics"] = val_results
 
     if evaluate_test_set:
+        # Discrete gestures task requires CPU, so re-initialize Trainer
         task = config.get("task")
         if task == "discrete_gestures":
             logger.info(
                 f"Running test-set evaluation for {task=} on cpu due to CUDNN "
                 f"incompatibilities with large sequence length."
             )
-            accelerator = "cpu"
+            trainer = Trainer(
+                accelerator="cpu",
+                devices=1,
+            )
 
-        trainer = Trainer(
-            accelerator=accelerator,
-            devices=1,
-        )
-
+        # Run evaluation on the test set
         logger.info("Running test...")
         test_results = trainer.test(model=module, datamodule=datamodule)
         logger.info(f"Test completed! {test_results=}")
