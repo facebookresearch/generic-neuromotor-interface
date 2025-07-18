@@ -13,16 +13,12 @@ import torch
 
 from generic_neuromotor_interface.data import (
     DataSplit,
-    HandwritingEmgDataset,
     make_dataset,
-    Partitions,
+    make_handwriting_dataset,
 )
-from generic_neuromotor_interface.transforms import Transform
-from generic_neuromotor_interface.utils import (
-    get_full_dataset_path,
-    handwriting_collate,
-)
-from torch.utils.data import ConcatDataset, DataLoader, default_collate
+from generic_neuromotor_interface.transforms import HandwritingTransform, Transform
+from generic_neuromotor_interface.utils import handwriting_collate
+from torch.utils.data import DataLoader, default_collate
 
 
 def custom_collate_fn(batch):
@@ -85,10 +81,9 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         corresponding partitions for the train, val, and test
         splits.
     transform : Transform
-        A composed sequence of transforms that takes
-        a window/slice of `EmgRecording` in the form of a numpy
-        structured array and a pandas DataFrame with prompt labels
-        and times, and returns a `torch.Tensor` instance.
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a pandas DataFrame with
+        prompt labels and times, and returns a `torch.Tensor` instance.
     data_location : str
         Path to where the dataset files are stored.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
@@ -208,11 +203,10 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         A dataclass containing a dictionary of datasets and
         corresponding partitions for the train, val, and test
         splits.
-    transform : Transform
-        A callable transforms that takes an EMG numpy array and
-        a pandas table with prompt information and returns it in
-        a format suitable for handwriting training.
-        (See generic_neuromotor_interface/transforms.py)
+    transform : HandwritingTransform
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a prompt string, and
+        returns a dictionary with "emg" and "prompts" keys.
     data_location : str
         Path to where the dataset files are stored.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor] | None
@@ -233,7 +227,7 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         padding: tuple[int, int],
         num_workers: int,
         data_split: DataSplit,
-        transform: Transform,
+        transform: HandwritingTransform,
         data_location: str,
         emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None = None,
         concatenate_prompts: bool = False,
@@ -252,37 +246,34 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         self.concatenate_prompts = concatenate_prompts
         self.min_duration_s = min_duration_s
 
-    def _make_dataset(
-        self, partition_dict: dict[str, Partitions | None], stage: str
-    ) -> ConcatDataset:
-        datasets = []
-        for dataset, partitions in partition_dict.items():
-            # A single partition that spans the entire dataset
-            if partitions is None:
-                partitions = [(-np.inf, np.inf)]
-
-            for _, _ in partitions:
-                datasets.append(
-                    HandwritingEmgDataset(
-                        get_full_dataset_path(self.data_location, dataset),
-                        padding=self.padding,
-                        transform=self.transform,
-                        jitter=stage == "train",
-                        emg_augmentation=(
-                            self.emg_augmentation if stage == "train" else None
-                        ),
-                        concatenate_prompts=(
-                            self.concatenate_prompts if stage == "train" else False
-                        ),
-                        min_duration_s=self.min_duration_s if stage == "train" else 0.0,
-                    )
-                )
-        return ConcatDataset(datasets)
-
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = self._make_dataset(self.data_split.train, "train")
-        self.val_dataset = self._make_dataset(self.data_split.val, "val")
-        self.test_dataset = self._make_dataset(self.data_split.test, "test")
+        self.train_dataset = make_handwriting_dataset(
+            data_location=self.data_location,
+            transform=self.transform,
+            padding=self.padding,
+            dataset_names=list(self.data_split.train.keys()),
+            emg_augmentation=self.emg_augmentation,
+            concatenate_prompts=self.concatenate_prompts,
+            min_duration_s=self.min_duration_s,
+        )
+        self.val_dataset = make_handwriting_dataset(
+            data_location=self.data_location,
+            transform=self.transform,
+            padding=self.padding,
+            dataset_names=list(self.data_split.val.keys()),
+            emg_augmentation=None,
+            concatenate_prompts=False,
+            min_duration_s=0.0,
+        )
+        self.test_dataset = make_handwriting_dataset(
+            data_location=self.data_location,
+            transform=self.transform,
+            padding=self.padding,
+            dataset_names=list(self.data_split.test.keys()),
+            emg_augmentation=None,
+            concatenate_prompts=False,
+            min_duration_s=0.0,
+        )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
