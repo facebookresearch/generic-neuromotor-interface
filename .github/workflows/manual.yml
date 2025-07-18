@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: 8-core-ubuntu
 
     steps:
       - uses: actions/checkout@v3
@@ -53,4 +53,7 @@ jobs:
         shell: bash -el {0}
         run: |
           conda activate neuromotor
-          USE_REAL_DATA=True USE_REAL_CHECKPOINTS=True pytest -m integration
+          pytest -m "integration and not full_data and not cuda" \
+            -vv \
+            --durations=10 \
+            -rA

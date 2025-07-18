@@ -53,4 +53,8 @@ jobs:
       shell: bash -el {0}
       run: |
         conda activate neuromotor
-        pytest -m integration
+        pytest \
+          -m 'integration and not real_data and not full_data and not cuda and not real_checkpoints' \
+          -vv \
+          --durations=10 \
+          -rA
