@@ -2,8 +2,6 @@ name: Neuromotor CI
 
 on:
   push:
-  pull_request:
-    types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
   build-linux:
@@ -40,16 +38,13 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Run tests
+    - name: Run unit tests
       shell: bash -el {0}
       run: |
         conda activate neuromotor
         pytest
 
-    # Only run integration tests on pull requests
-    - name: Run integration tests
-      if: github.event_name == 'pull_request'
-      # if: github.event_name == 'pull_request' && github.event.action == 'ready_for_review'
+    - name: Run integration tests (cpu, dummy data)
       shell: bash -el {0}
       run: |
         conda activate neuromotor
