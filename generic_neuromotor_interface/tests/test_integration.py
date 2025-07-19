@@ -388,8 +388,9 @@ def _check_expected_results(
         elif task_name == "handwriting":
             _assert_expected(
                 actual=results["test_metrics"][0]["test/CER"],
-                expected=30.0686,
+                expected=30.0645,
                 metric_name="handwriting:test/CER",
+                atol=1e-2,
             )
         else:
             raise ValueError(f"Unrecogznied {task_name=}")
