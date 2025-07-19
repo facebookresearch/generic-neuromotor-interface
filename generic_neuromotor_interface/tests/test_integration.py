@@ -26,6 +26,7 @@ import numpy as np
 
 import pytest
 import pytorch_lightning as pl
+import torch
 
 from generic_neuromotor_interface.scripts.download_data import download_data
 from generic_neuromotor_interface.scripts.download_models import download_models
@@ -232,6 +233,10 @@ def test_task_evaluate_from_checkpoint(
         f"use_cuda={use_cuda}"
     )
 
+    if use_cuda:
+        print("Clearing CUDA cache [start]")
+        torch.cuda.empty_cache()
+
     _test_task_evaluate_mini_subset_cpu(
         task_name,
         dataset_dir,
@@ -240,6 +245,10 @@ def test_task_evaluate_from_checkpoint(
         use_cuda=use_cuda,
         use_real_checkpoints=use_real_checkpoints,
     )
+
+    if use_cuda:
+        print("Clearing CUDA cache [end]")
+        torch.cuda.empty_cache()
 
 
 @pytest.mark.integration
@@ -306,12 +315,20 @@ def test_task_training_loop(
         f"use_cuda={use_cuda}"
     )
 
+    if use_cuda:
+        print("Clearing CUDA cache [start]")
+        torch.cuda.empty_cache()
+
     _test_task_train_mini_subset_cpu(
         task_name,
         data_dir,
         use_full_data=use_full_data,
         use_cuda=use_cuda,
     )
+
+    if use_cuda:
+        print("Clearing CUDA cache [end]")
+        torch.cuda.empty_cache()
 
 
 def _test_task_train_mini_subset_cpu(
