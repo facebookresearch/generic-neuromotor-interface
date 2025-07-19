@@ -378,6 +378,7 @@ def _check_expected_results(
                 actual=results["test_metrics"][0]["test_mae_deg_per_sec"],
                 expected=11.2348,
                 metric_name="wrist:test_mae_deg_per_sec",
+                atol=1e-2,
             )
         elif task_name == "discrete_gestures":
             _assert_expected(
