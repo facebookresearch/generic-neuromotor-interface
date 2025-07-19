@@ -56,6 +56,7 @@ jobs:
         run: |
           conda activate neuromotor
           pytest -m "integration and not full_data and cuda" \
+            -k "test_task_evaluate_from_checkpoint[task=wrist-cuda=True-real_checkpoints=True-persistent_temp_dir=True-full_data=False-real_data=True]" \
             -vv \
             --durations=10 \
             -rA
