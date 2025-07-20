@@ -4,8 +4,11 @@
 _target_: generic_neuromotor_interface.data.DataSplit
 
 train:
-  discrete_gestures_user_000_dataset_000: null # null means use the entire dataset (no partitioning)
+  discrete_gestures_user_000_dataset_000:
+    - [1633017385.77766, 1633017566.046355]
 val:
-  discrete_gestures_user_001_dataset_000: null # null means use the entire dataset (no partitioning)
+  discrete_gestures_user_001_dataset_000:
+    - [1649270219.168156, 1649270399.179029]
 test:
-  discrete_gestures_user_002_dataset_000: null # null means use the entire dataset (no partitioning)
+  discrete_gestures_user_002_dataset_000:
+    - [1634053968.781979, 1634054018.2323678]
