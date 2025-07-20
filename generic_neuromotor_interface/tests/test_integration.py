@@ -382,6 +382,13 @@ def _test_task_train_mini_subset_cpu(
             ),
         )
 
+        # Reduce batch size for tasks to accomodate GitHub CI GPU runners
+        if use_cuda:
+            if task_name == "wrist":
+                config.data_module.batch_size = 8  # from 256
+            elif task_name == "handwriting":
+                config.data_module.batch_size = 2  # from 8
+
         # Run training with minimal epochs
         results = train(config)
 
