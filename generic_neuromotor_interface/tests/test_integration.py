@@ -382,13 +382,6 @@ def _test_task_train_mini_subset_cpu(
             ),
         )
 
-        # Adjust batch size for GPU runners available in GitHub CI
-        if use_cuda:
-            if task_name == "wrist":
-                config.data_module.batch_size = 8  # reduction from prod batch size
-            else:
-                pass  # handwriting and discrete gestures do not need to be adjusted
-
         # Run training with minimal epochs
         results = train(config)
 
