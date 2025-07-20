@@ -27,6 +27,7 @@ import numpy as np
 import pytest
 import pytorch_lightning as pl
 import torch
+from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 
 from generic_neuromotor_interface.scripts.download_data import download_data
 from generic_neuromotor_interface.scripts.download_models import download_models
@@ -51,19 +52,43 @@ def create_temp_dir(use_persistent_temp_dir, use_real_data):
 
 def get_mock_datasets(task_name, temp_data_dir):
     print(f"Creating mock datasets for {task_name} in {temp_data_dir}")
-    for user in ["000", "001", "002"]:
-        num_samples = 32_000  # NOTE: needed for 16_000 window size discrete_gestures
+    config_dir = str(Path(__file__).parent.absolute() / "../../config")
 
-        _file = create_mock_dataset(
-            task_name=task_name,
-            output_path=temp_data_dir,
-            num_samples=num_samples,
-            num_prompts=9,
-            output_file_name=f"{task_name}_user_{user}_dataset_000.hdf5",
+    with initialize_config_dir(version_base="1.1", config_dir=config_dir):
+        config = compose(
+            config_name=task_name,
+            overrides=[f"data_module/data_split={task_name}_mini_split"],
         )
-        assert _file is not None
-        assert _file.exists()
-        print(f"Created {_file}")
+
+    data_split = hydra.utils.instantiate(config.data_module.data_split)
+
+    for split in ["train", "val", "test"]:
+        data_in_split = getattr(data_split, split)
+        for dataset_name, partitions in data_in_split.items():
+            if partitions is None:
+                _file = create_mock_dataset(
+                    task_name=task_name,
+                    output_path=temp_data_dir,
+                    num_samples=32_000,
+                    num_prompts=9,
+                    output_file_name=f"{dataset_name}.hdf5",
+                )
+                continue
+
+            for partition in partitions:
+                start, end = partition
+                _buffer = 5.0  # add a time buffer around selected window (start, end)
+                _file = create_mock_dataset(
+                    task_name=task_name,
+                    output_path=temp_data_dir,
+                    start_time=start - _buffer,
+                    num_samples=int((end - start + _buffer) * EMG_SAMPLE_RATE),
+                    num_prompts=9,
+                    output_file_name=f"{dataset_name}.hdf5",
+                )
+                assert _file is not None
+                assert _file.exists()
+                print(f"Created {_file}")
 
     return temp_data_dir
 
