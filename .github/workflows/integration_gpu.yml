@@ -1,11 +1,12 @@
-# Manually trigger a workflow run that uses prod data and checkpoints
+# Workflow run that uses prod data and checkpoints
 # (uses real [small] dataset and real checkpoints)
 
-# Uses a GPU Runner and tests cuda, real_data, small subsets
+# Uses a GPU Runner and tests cuda, real_data, small data subset
 
-name: GPU Manual Tests
+name: GPU Integration Tests (Real Data)
 
 on:
+  workflow_dispatch:
   pull_request:
 
 jobs:
@@ -51,12 +52,11 @@ jobs:
           conda activate neuromotor
           pytest
 
-      - name: Run integration tests (with real data + checkpoints)
+      - name: Run integration tests (with real data + checkpoints) [GPU]
         shell: bash -el {0}
         run: |
           conda activate neuromotor
           pytest -m "integration and not full_data and cuda and real_data" \
-            -k "wrist and evaluate" \
             -vv \
             --durations=10 \
             -rA
