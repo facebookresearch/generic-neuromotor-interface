@@ -8,9 +8,15 @@ name: CPU Integration Tests (Real Data)
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, labeled]
+  push:
+    branches:
+      - main
+
 
 jobs:
-  build-linux:
+  cpu-integration-tests:
+    if: contains(github.event.pull_request.labels.*.name, 'run-full-ci-cpu')
     runs-on: 8-core-ubuntu
 
     steps:
