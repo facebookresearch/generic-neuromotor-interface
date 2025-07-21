@@ -16,7 +16,7 @@ on:
 
 jobs:
   cpu-integration-tests:
-    if: contains(github.event.pull_request.labels.*.name, 'run-full-ci-cpu')
+    if: contains(github.event.pull_request.labels.*.name, 'run-full-ci-cpu') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: 8-core-ubuntu
 
     steps:
