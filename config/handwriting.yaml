@@ -11,7 +11,7 @@ task: handwriting
 # Train settings
 seed: 42
 train: True # Whether to run training
-eval: False # Whether to run evaluation on validation and test splits
+eval: True # Whether to run evaluation on validation and test splits
 
 # Number of nodes to train in DDP (1 node = 1 machine (e.g. G4))
 # So 2 nodes ==> 2xG4 ==> 2x8 GPUs ==> 16 GPUs

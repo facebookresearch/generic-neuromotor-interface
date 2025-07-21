@@ -26,9 +26,14 @@ import numpy as np
 
 import pytest
 import pytorch_lightning as pl
+import torch
+from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 
 from generic_neuromotor_interface.scripts.download_data import download_data
 from generic_neuromotor_interface.scripts.download_models import download_models
+from generic_neuromotor_interface.tests.expected_test_results import (
+    EXPECTED_TEST_VALUES,
+)
 from generic_neuromotor_interface.tests.mock_datasets import create_mock_dataset
 from generic_neuromotor_interface.train import evaluate_from_checkpoint, train
 from hydra import compose, initialize_config_dir
@@ -50,19 +55,48 @@ def create_temp_dir(use_persistent_temp_dir, use_real_data):
 
 def get_mock_datasets(task_name, temp_data_dir):
     print(f"Creating mock datasets for {task_name} in {temp_data_dir}")
-    for user in ["000", "001", "002"]:
-        num_samples = 32_000  # NOTE: needed for 16_000 window size discrete_gestures
+    config_dir = str(Path(__file__).parent.absolute() / "../../config")
 
-        _file = create_mock_dataset(
-            task_name=task_name,
-            output_path=temp_data_dir,
-            num_samples=num_samples,
-            num_prompts=9,
-            output_file_name=f"{task_name}_user_{user}_dataset_000.hdf5",
+    with initialize_config_dir(version_base="1.1", config_dir=config_dir):
+        config = compose(
+            config_name=task_name,
+            overrides=[f"data_module/data_split={task_name}_mini_split"],
         )
-        assert _file is not None
-        assert _file.exists()
-        print(f"Created {_file}")
+
+    data_split = hydra.utils.instantiate(config.data_module.data_split)
+    random_seed = 0
+
+    for split in ["train", "val", "test"]:
+        data_in_split = getattr(data_split, split)
+        for dataset_name, partitions in data_in_split.items():
+            if partitions is None:
+                _file = create_mock_dataset(
+                    task_name=task_name,
+                    output_path=temp_data_dir,
+                    num_samples=32_000,
+                    num_prompts=9,
+                    output_file_name=f"{dataset_name}.hdf5",
+                    random_seed=random_seed,
+                )
+                random_seed += 1
+                continue
+
+            for partition in partitions:
+                start, end = partition
+                _buffer = 5.0  # add a time buffer around selected window (start, end)
+                _file = create_mock_dataset(
+                    task_name=task_name,
+                    output_path=temp_data_dir,
+                    start_time=start - _buffer,
+                    num_samples=int((end - start + _buffer) * EMG_SAMPLE_RATE),
+                    num_prompts=9,
+                    output_file_name=f"{dataset_name}.hdf5",
+                    random_seed=random_seed,
+                )
+                random_seed += 1
+                assert _file is not None
+                assert _file.exists()
+                print(f"Created {_file}")
 
     return temp_data_dir
 
@@ -219,6 +253,9 @@ def test_task_evaluate_from_checkpoint(
     if use_full_data and not use_real_data:
         pytest.skip("use_full_data=True requires use_real_data=True")
 
+    if use_real_data and not use_real_checkpoints:
+        pytest.skip("skipping fake checkpoints + real data combo; redundant")
+
     model_dir = task_model_fixture["model_dir"]
     dataset_dir = task_dataset_dir_fixture["dataset_dir"]
 
@@ -229,6 +266,10 @@ def test_task_evaluate_from_checkpoint(
         f"use_cuda={use_cuda}"
     )
 
+    if use_cuda:
+        print("Clearing CUDA cache [start]")
+        torch.cuda.empty_cache()
+
     _test_task_evaluate_mini_subset_cpu(
         task_name,
         dataset_dir,
@@ -236,7 +277,12 @@ def test_task_evaluate_from_checkpoint(
         use_full_data=use_full_data,
         use_cuda=use_cuda,
         use_real_checkpoints=use_real_checkpoints,
+        use_real_data=use_real_data,
     )
+
+    if use_cuda:
+        print("Clearing CUDA cache [end]")
+        torch.cuda.empty_cache()
 
 
 @pytest.mark.integration
@@ -303,12 +349,20 @@ def test_task_training_loop(
         f"use_cuda={use_cuda}"
     )
 
+    if use_cuda:
+        print("Clearing CUDA cache [start]")
+        torch.cuda.empty_cache()
+
     _test_task_train_mini_subset_cpu(
         task_name,
         data_dir,
         use_full_data=use_full_data,
         use_cuda=use_cuda,
     )
+
+    if use_cuda:
+        print("Clearing CUDA cache [end]")
+        torch.cuda.empty_cache()
 
 
 def _test_task_train_mini_subset_cpu(
@@ -337,6 +391,13 @@ def _test_task_train_mini_subset_cpu(
             ),
         )
 
+        # Reduce batch size for tasks to accommodate GitHub CI GPU runners
+        if use_cuda:
+            if task_name == "wrist":
+                config.data_module.batch_size = 8  # from 256
+            elif task_name == "handwriting":
+                config.data_module.batch_size = 2  # from 8
+
         # Run training with minimal epochs
         results = train(config)
 
@@ -361,28 +422,29 @@ def _check_expected_results(
     results: dict[str, Any],
     use_full_data=False,
     use_real_checkpoints=False,
+    use_real_data=False,
 ):
-    if use_full_data and use_real_checkpoints:
-        if task_name == "wrist":
-            _assert_expected(
-                actual=results["test_metrics"][0]["test_mae_deg_per_sec"],
-                expected=11.2348,
-                metric_name="wrist:test_mae_deg_per_sec",
-            )
-        elif task_name == "discrete_gestures":
-            _assert_expected(
-                actual=results["test_metrics"][0]["test_cler"],
-                expected=0.1819,
-                metric_name="discrete_gestures:test_cler",
-            )
-        elif task_name == "handwriting":
-            _assert_expected(
-                actual=results["test_metrics"][0]["test/CER"],
-                expected=30.0686,
-                metric_name="handwriting:test/CER",
-            )
-        else:
-            raise ValueError(f"Unrecogznied {task_name=}")
+    # Only check if using real checkpoints and real data
+    if not use_real_checkpoints or not use_real_data:
+        return
+
+    # Determine which dataset size we're using
+    data_size = "full_data" if use_full_data else "small_subset"
+
+    if task_name not in EXPECTED_TEST_VALUES:
+        raise ValueError(f"Unrecognized {task_name=}")
+
+    if data_size not in EXPECTED_TEST_VALUES[task_name]:
+        raise ValueError(f"Unrecognized {data_size=}")
+
+    # Check each expected metric
+    for metric_name, expectation in EXPECTED_TEST_VALUES[task_name][data_size].items():
+        _assert_expected(
+            actual=results["test_metrics"][0][metric_name],
+            expected=expectation["value"],
+            metric_name=f"{task_name}:{metric_name}",
+            atol=expectation["atol"],
+        )
 
 
 def _test_task_evaluate_mini_subset_cpu(
@@ -392,6 +454,7 @@ def _test_task_evaluate_mini_subset_cpu(
     use_full_data=False,
     use_cuda=False,
     use_real_checkpoints=False,
+    use_real_data=False,
 ):
     """Test end-to-end inference pipeline."""
     # Test code that loads a model, runs inference on sample data,
@@ -447,4 +510,10 @@ def _test_task_evaluate_mini_subset_cpu(
 
         assert "test_metrics" in results
 
-        _check_expected_results(task_name, results, use_full_data, use_real_checkpoints)
+        _check_expected_results(
+            task_name=task_name,
+            results=results,
+            use_full_data=use_full_data,
+            use_real_checkpoints=use_real_checkpoints,
+            use_real_data=use_real_data,
+        )
