@@ -272,6 +272,7 @@ def test_task_evaluate_from_checkpoint(
         use_full_data=use_full_data,
         use_cuda=use_cuda,
         use_real_checkpoints=use_real_checkpoints,
+        use_real_data=use_real_data,
     )
 
     if use_cuda:
@@ -416,10 +417,11 @@ def _check_expected_results(
     results: dict[str, Any],
     use_full_data=False,
     use_real_checkpoints=False,
+    use_real_data=False,
 ):
 
-    # Only check if using real checkpoints
-    if not use_real_checkpoints:
+    # Only check if using real checkpoints and real data
+    if not use_real_checkpoints or not use_real_data:
         return
 
     # Determine which dataset size we're using
@@ -448,6 +450,7 @@ def _test_task_evaluate_mini_subset_cpu(
     use_full_data=False,
     use_cuda=False,
     use_real_checkpoints=False,
+    use_real_data=False,
 ):
     """Test end-to-end inference pipeline."""
     # Test code that loads a model, runs inference on sample data,
@@ -503,4 +506,10 @@ def _test_task_evaluate_mini_subset_cpu(
 
         assert "test_metrics" in results
 
-        _check_expected_results(task_name, results, use_full_data, use_real_checkpoints)
+        _check_expected_results(
+            task_name=task_name,
+            results=results,
+            use_full_data=use_full_data,
+            use_real_checkpoints=use_real_checkpoints,
+            use_real_data=use_real_data,
+        )
