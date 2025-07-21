@@ -425,13 +425,11 @@ def _check_expected_results(
     # Determine which dataset size we're using
     data_size = "full_data" if use_full_data else "small_subset"
 
-    # Check if task exists in our expectations
     if task_name not in EXPECTED_TEST_VALUES:
         raise ValueError(f"Unrecognized {task_name=}")
 
-    # Check if we have expectations for this data size
     if data_size not in EXPECTED_TEST_VALUES[task_name]:
-        return
+        raise ValueError(f"Unrecognized {data_size=}")
 
     # Check each expected metric
     for metric_name, expectation in EXPECTED_TEST_VALUES[task_name][data_size].items():
