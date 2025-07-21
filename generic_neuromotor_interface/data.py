@@ -19,6 +19,7 @@ from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE, Task
 from generic_neuromotor_interface.transforms import HandwritingTransform, Transform
 from generic_neuromotor_interface.utils import get_full_dataset_path
 from torch.utils.data import ConcatDataset
+from tqdm.auto import tqdm
 
 from typing_extensions import Self
 
@@ -384,6 +385,7 @@ def make_dataset(
     window_length: int | None,
     stride: int | None,
     jitter: bool,
+    split_label: str | None = None,
 ) -> ConcatDataset:
     """
     Creates a concatenated dataset of EMG data windows from specified partitions.
@@ -423,7 +425,9 @@ def make_dataset(
         A concatenated dataset of `WindowedEmgDataset` instances.
     """
     datasets = []
-    for dataset, partitions in partition_dict.items():
+    for dataset, partitions in tqdm(
+        partition_dict.items(), desc=f"[setup] Loading datasets for split {split_label}"
+    ):
         # A single partition that spans the entire dataset
         if partitions is None:
             partitions = [(-np.inf, np.inf)]
@@ -459,6 +463,7 @@ def make_handwriting_dataset(
     padding: tuple[int, int],
     concatenate_prompts: bool,
     min_duration_s: float,
+    split_label: str | None = None,
 ) -> ConcatDataset:
     """
     Creates a concatenated dataset of EMG data windows aligned to handwriting prompts.
@@ -506,6 +511,8 @@ def make_handwriting_dataset(
             concatenate_prompts=concatenate_prompts,
             min_duration_s=min_duration_s,
         )
-        for dataset_name in dataset_names
+        for dataset_name in tqdm(
+            dataset_names, desc=f"[setup] Loading datasets for split {split_label}"
+        )
     ]
     return ConcatDataset(datasets)
