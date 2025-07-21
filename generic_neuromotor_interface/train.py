@@ -12,6 +12,7 @@ from typing import Any
 
 import hydra
 import pytorch_lightning as pl
+import torch.distributed as dist
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -83,16 +84,28 @@ def train(
             module, results = module_and_results
 
     if config.eval:
-        # NOTE: rank 0 only
+        # rank 0 only
         # Validate and test run on 1 device only (i.e. no distributed data parallelism)
         # This is to ensure reproducibility of metrics reported.
-        results = _run_validate_and_test(
-            module=module,
-            datamodule=datamodule,
-            results=results,
-            logger=logger,
-            accelerator=accelerator,
-        )
+
+        del datamodule, trainer
+        logger.info("Destroying process group...")
+        if dist.is_initialized():
+            dist.destroy_process_group()
+        logger.info("Destroyed process group.")
+
+        if pl.utilities.rank_zero_only.rank == 0:
+            logger.info("Re-instantiating LightningDataModule for evaluation...")
+            datamodule = instantiate(config.data_module, _convert_="all")
+
+            results = _run_validate_and_test(
+                module=module,
+                datamodule=datamodule,
+                results=results,
+                logger=logger,
+                accelerator=accelerator,
+                config=config,
+            )
 
     _log_pretty_results(results=results, logger=logger)
 
@@ -128,6 +141,56 @@ def evaluate_from_checkpoint(
     results = {}
     results["checkpoint_path"] = checkpoint_path
 
+    results = _run_validate_and_test(
+        module=module,
+        datamodule=datamodule,
+        results=results,
+        logger=logger,
+        accelerator=accelerator,
+        config=config,
+        evaluate_validation_set=evaluate_validation_set,
+        evaluate_test_set=evaluate_test_set,
+    )
+
+    return results
+
+
+@pl.utilities.rank_zero_only
+def _load_and_report_best_checkpoint(
+    trainer, module, results, logger
+) -> pl.LightningModule:
+    logger.info("Loading best checkpoint...")
+
+    checkpoint_callback = trainer.checkpoint_callback
+    if checkpoint_callback is None:
+        raise RuntimeError("No checkpoint callback found in trainer")
+
+    best_checkpoint_path = checkpoint_callback.best_model_path
+    best_checkpoint_score = checkpoint_callback.best_model_score
+
+    logger.info(
+        f"Loading best checkpoint from {best_checkpoint_path=} "
+        f"with {best_checkpoint_score=}..."
+    )
+    module = module.__class__.load_from_checkpoint(best_checkpoint_path)
+
+    results["best_checkpoint_path"] = best_checkpoint_path
+    results["best_checkpoint_score"] = best_checkpoint_score.cpu().item()
+
+    return module, results
+
+
+@pl.utilities.rank_zero_only
+def _run_validate_and_test(
+    module,
+    datamodule,
+    results,
+    logger,
+    accelerator,
+    config,
+    evaluate_validation_set=True,
+    evaluate_test_set=True,
+):
     trainer = Trainer(
         accelerator=accelerator,
         devices=1,
@@ -160,56 +223,6 @@ def evaluate_from_checkpoint(
         logger.info(f"Test completed! {test_results=}")
 
         results["test_metrics"] = test_results
-
-    return results
-
-
-@pl.utilities.rank_zero_only
-def _load_and_report_best_checkpoint(
-    trainer, module, results, logger
-) -> pl.LightningModule:
-    logger.info("Loading best checkpoint...")
-
-    checkpoint_callback = trainer.checkpoint_callback
-    if checkpoint_callback is None:
-        raise RuntimeError("No checkpoint callback found in trainer")
-
-    best_checkpoint_path = checkpoint_callback.best_model_path
-    best_checkpoint_score = checkpoint_callback.best_model_score
-
-    logger.info(
-        f"Loading best checkpoint from {best_checkpoint_path=} "
-        f"with {best_checkpoint_score=}..."
-    )
-    module = module.__class__.load_from_checkpoint(best_checkpoint_path)
-
-    results["best_checkpoint_path"] = best_checkpoint_path
-    results["best_checkpoint_score"] = best_checkpoint_score.cpu().item()
-
-    return module, results
-
-
-@pl.utilities.rank_zero_only
-def _run_validate_and_test(module, datamodule, results, logger, accelerator):
-    logger.info("Running validate and test w/ devices=1 only...")
-
-    trainer = Trainer(
-        accelerator=accelerator,
-        devices=1,
-    )
-
-    logger.info("Running validation...")
-    val_results = trainer.validate(model=module, datamodule=datamodule)
-    logger.info(f"Validation completed! {val_results=}")
-
-    # TODO: do we need to enforce cpu here as well?
-    # TODO: share logic with evaluate_from_checkpoint?
-    logger.info("Running test...")
-    test_results = trainer.test(model=module, datamodule=datamodule)
-    logger.info(f"Test completed! {test_results=}")
-
-    results["val_metrics"] = val_results
-    results["test_metrics"] = test_results
 
     return results
 
