@@ -16,7 +16,7 @@ import pytorch_lightning as pl
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import Trainer
-
+import torch.distributed as dist
 
 def train(
     config: DictConfig,
@@ -83,17 +83,29 @@ def train(
             module, results = module_and_results
 
     if config.eval:
-        # NOTE: rank 0 only
+        # rank 0 only
         # Validate and test run on 1 device only (i.e. no distributed data parallelism)
         # This is to ensure reproducibility of metrics reported.
-        results = _run_validate_and_test(
-            module=module,
-            datamodule=datamodule,
-            results=results,
-            logger=logger,
-            accelerator=accelerator,
-            config=config,
-        )
+
+        del datamodule, trainer
+        logger.info("Destroying process group...")
+        if dist.is_initialized():
+            dist.destroy_process_group()
+        logger.info("Destroyed process group.")
+
+        if pl.utilities.rank_zero_only.rank == 0:
+
+            logger.info("Re-instantiating LightningDataModule for evaluation...")
+            datamodule = instantiate(config.data_module, _convert_="all")
+
+            results = _run_validate_and_test(
+                module=module,
+                datamodule=datamodule,
+                results=results,
+                logger=logger,
+                accelerator=accelerator,
+                config=config,
+            )
 
     _log_pretty_results(results=results, logger=logger)
 
