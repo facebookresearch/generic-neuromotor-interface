@@ -394,16 +394,9 @@ def _test_task_train_mini_subset_cpu(
         # Reduce batch size for tasks to accomodate GitHub CI GPU runners
         if use_cuda:
             if task_name == "wrist":
-                print("Reducing batch size for wrist test")
                 config.data_module.batch_size = 8  # from 256
             elif task_name == "handwriting":
-                print("Reducing batch size for handwriting test")
                 config.data_module.batch_size = 2  # from 8
-
-        # Discrete gestures test requires more RAM than standard GitHub CI runners
-        if task_name == "discrete_gestures":
-            print("Reducing batch size for discrete gestures test")
-            config.data_module.batch_size = 32  # from 64
 
         # Run training with minimal epochs
         results = train(config)
@@ -495,11 +488,6 @@ def _test_task_evaluate_mini_subset_cpu(
         loaded_config.data_module.data_location = base_config.data_module.data_location
         loaded_config.data_module.data_split = base_config.data_module.data_split
         loaded_config.trainer.accelerator = base_config.trainer.accelerator
-
-        # Discrete gestures test requires more RAM than standard GitHub CI runners
-        if task_name == "discrete_gestures":
-            print("Reducing batch size for discrete gestures test")
-            loaded_config.data_module.batch_size = 32  # from 64
 
         assert isinstance(loaded_config, DictConfig)
         print(OmegaConf.to_yaml(loaded_config))
