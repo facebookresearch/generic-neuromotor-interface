@@ -18,6 +18,7 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import Trainer
 import torch.distributed as dist
 
+
 def train(
     config: DictConfig,
     extra_callbacks: Sequence[Callable] | None = None,
