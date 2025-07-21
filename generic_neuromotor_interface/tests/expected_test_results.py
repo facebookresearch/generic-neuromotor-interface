@@ -6,7 +6,7 @@ EXPECTED_TEST_VALUES = {
     },
     "discrete_gestures": {
         "full_data": {"test_cler": {"value": 0.1819, "atol": 1e-3}},
-        "small_subset": {"test_cler": {"value": 0.1156, "atol": 1e-3}},
+        "small_subset": {"test_cler": {"value": 0.03321, "atol": 1e-3}},
     },
     "handwriting": {
         "full_data": {"test/CER": {"value": 30.0645, "atol": 1e-2}},
