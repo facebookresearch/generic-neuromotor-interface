@@ -12,11 +12,11 @@ from typing import Any
 
 import hydra
 import pytorch_lightning as pl
+import torch.distributed as dist
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import Trainer
-import torch.distributed as dist
 
 
 def train(

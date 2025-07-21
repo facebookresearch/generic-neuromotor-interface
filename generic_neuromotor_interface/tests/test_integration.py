@@ -64,6 +64,7 @@ def get_mock_datasets(task_name, temp_data_dir):
         )
 
     data_split = hydra.utils.instantiate(config.data_module.data_split)
+    random_seed = 0
 
     for split in ["train", "val", "test"]:
         data_in_split = getattr(data_split, split)
@@ -75,7 +76,9 @@ def get_mock_datasets(task_name, temp_data_dir):
                     num_samples=32_000,
                     num_prompts=9,
                     output_file_name=f"{dataset_name}.hdf5",
+                    random_seed=random_seed,
                 )
+                random_seed += 1
                 continue
 
             for partition in partitions:
@@ -88,7 +91,9 @@ def get_mock_datasets(task_name, temp_data_dir):
                     num_samples=int((end - start + _buffer) * EMG_SAMPLE_RATE),
                     num_prompts=9,
                     output_file_name=f"{dataset_name}.hdf5",
+                    random_seed=random_seed,
                 )
+                random_seed += 1
                 assert _file is not None
                 assert _file.exists()
                 print(f"Created {_file}")
