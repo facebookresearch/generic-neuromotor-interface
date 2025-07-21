@@ -31,6 +31,9 @@ from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 
 from generic_neuromotor_interface.scripts.download_data import download_data
 from generic_neuromotor_interface.scripts.download_models import download_models
+from generic_neuromotor_interface.tests.expected_test_results import (
+    EXPECTED_TEST_VALUES,
+)
 from generic_neuromotor_interface.tests.mock_datasets import create_mock_dataset
 from generic_neuromotor_interface.train import evaluate_from_checkpoint, train
 from hydra import compose, initialize_config_dir
@@ -414,29 +417,30 @@ def _check_expected_results(
     use_full_data=False,
     use_real_checkpoints=False,
 ):
-    if use_full_data and use_real_checkpoints:
-        if task_name == "wrist":
-            _assert_expected(
-                actual=results["test_metrics"][0]["test_mae_deg_per_sec"],
-                expected=11.2348,
-                metric_name="wrist:test_mae_deg_per_sec",
-                atol=1e-2,
-            )
-        elif task_name == "discrete_gestures":
-            _assert_expected(
-                actual=results["test_metrics"][0]["test_cler"],
-                expected=0.1819,
-                metric_name="discrete_gestures:test_cler",
-            )
-        elif task_name == "handwriting":
-            _assert_expected(
-                actual=results["test_metrics"][0]["test/CER"],
-                expected=30.0645,
-                metric_name="handwriting:test/CER",
-                atol=1e-2,
-            )
-        else:
-            raise ValueError(f"Unrecogznied {task_name=}")
+
+    # Only check if using real checkpoints
+    if not use_real_checkpoints:
+        return
+
+    # Determine which dataset size we're using
+    data_size = "full_data" if use_full_data else "small_subset"
+
+    # Check if task exists in our expectations
+    if task_name not in EXPECTED_TEST_VALUES:
+        raise ValueError(f"Unrecognized {task_name=}")
+
+    # Check if we have expectations for this data size
+    if data_size not in EXPECTED_TEST_VALUES[task_name]:
+        return
+
+    # Check each expected metric
+    for metric_name, expectation in EXPECTED_TEST_VALUES[task_name][data_size].items():
+        _assert_expected(
+            actual=results["test_metrics"][0][metric_name],
+            expected=expectation["value"],
+            metric_name=f"{task_name}:{metric_name}",
+            atol=expectation["atol"],
+        )
 
 
 def _test_task_evaluate_mini_subset_cpu(
