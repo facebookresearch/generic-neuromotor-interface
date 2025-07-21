@@ -15,7 +15,7 @@ on:
 
 jobs:
   gpu-integration-tests:
-    if: contains(github.event.pull_request.labels.*.name, 'run-full-ci-gpu')
+    if: contains(github.event.pull_request.labels.*.name, 'run-full-ci-gpu') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: 4-core-ubuntu-gpu-t4
 
     steps:
