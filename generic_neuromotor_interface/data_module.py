@@ -115,35 +115,41 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         self.data_location = data_location
 
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = make_dataset(
-            data_location=self.data_location,
-            transform=self.transform,
-            partition_dict=self.data_split.train,
-            window_length=self.window_length,
-            stride=self.stride,
-            jitter=True,
-            emg_augmentation=self.emg_augmentation,
-        )
-        self.val_dataset = make_dataset(
-            data_location=self.data_location,
-            transform=self.transform,
-            partition_dict=self.data_split.val,
-            window_length=self.window_length,
-            stride=self.stride,
-            jitter=False,
-            emg_augmentation=None,
-        )
-        self.test_dataset = make_dataset(
-            data_location=self.data_location,
-            transform=self.transform,
-            partition_dict=self.data_split.test,
-            # At test time, we feed in the entire partition in one
-            # window to be more consistent with real-time deployment.
-            window_length=None,
-            stride=None,
-            jitter=False,
-            emg_augmentation=None,
-        )
+        if stage == "fit" or stage is None:
+            self.train_dataset = make_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                partition_dict=self.data_split.train,
+                window_length=self.window_length,
+                stride=self.stride,
+                jitter=True,
+                emg_augmentation=self.emg_augmentation,
+                split_label="train",
+            )
+        if stage == "fit" or stage == "validate" or stage is None:
+            self.val_dataset = make_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                partition_dict=self.data_split.val,
+                window_length=self.window_length,
+                stride=self.stride,
+                jitter=False,
+                emg_augmentation=None,
+                split_label="val",
+            )
+        if stage == "test" or stage is None:
+            self.test_dataset = make_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                partition_dict=self.data_split.test,
+                # At test time, we feed in the entire partition in one
+                # window to be more consistent with real-time deployment.
+                window_length=None,
+                stride=None,
+                jitter=False,
+                emg_augmentation=None,
+                split_label="test",
+            )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -247,33 +253,39 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         self.min_duration_s = min_duration_s
 
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = make_handwriting_dataset(
-            data_location=self.data_location,
-            transform=self.transform,
-            padding=self.padding,
-            dataset_names=list(self.data_split.train.keys()),
-            emg_augmentation=self.emg_augmentation,
-            concatenate_prompts=self.concatenate_prompts,
-            min_duration_s=self.min_duration_s,
-        )
-        self.val_dataset = make_handwriting_dataset(
-            data_location=self.data_location,
-            transform=self.transform,
-            padding=self.padding,
-            dataset_names=list(self.data_split.val.keys()),
-            emg_augmentation=None,
-            concatenate_prompts=False,
-            min_duration_s=0.0,
-        )
-        self.test_dataset = make_handwriting_dataset(
-            data_location=self.data_location,
-            transform=self.transform,
-            padding=self.padding,
-            dataset_names=list(self.data_split.test.keys()),
-            emg_augmentation=None,
-            concatenate_prompts=False,
-            min_duration_s=0.0,
-        )
+        if stage == "fit" or stage is None:
+            self.train_dataset = make_handwriting_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                padding=self.padding,
+                dataset_names=list(self.data_split.train.keys()),
+                emg_augmentation=self.emg_augmentation,
+                concatenate_prompts=self.concatenate_prompts,
+                min_duration_s=self.min_duration_s,
+                split_label="train",
+            )
+        if stage == "fit" or stage == "validate" or stage is None:
+            self.val_dataset = make_handwriting_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                padding=self.padding,
+                dataset_names=list(self.data_split.val.keys()),
+                emg_augmentation=None,
+                concatenate_prompts=False,
+                min_duration_s=0.0,
+                split_label="val",
+            )
+        if stage == "test" or stage is None:
+            self.test_dataset = make_handwriting_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                padding=self.padding,
+                dataset_names=list(self.data_split.test.keys()),
+                emg_augmentation=None,
+                concatenate_prompts=False,
+                min_duration_s=0.0,
+                split_label="test",
+            )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
