@@ -8,9 +8,14 @@ name: GPU Integration Tests (Real Data)
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, labeled]
+  push:
+    branches:
+      - main
 
 jobs:
-  build-linux:
+  gpu-integration-tests:
+    if: contains(github.event.pull_request.labels.*.name, 'run-full-ci-gpu')
     runs-on: 4-core-ubuntu-gpu-t4
 
     steps:
