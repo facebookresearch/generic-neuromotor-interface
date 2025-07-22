@@ -13,8 +13,6 @@ import torch.nn.functional as F
 from omegaconf import ListConfig
 from torch import nn
 
-LPadType = int | Literal["none", "steady", "full"]
-
 
 class Permute(nn.Module):
     """Permute the dimensions of the input tensor.
@@ -790,6 +788,9 @@ class MaskAug(nn.Module):
         return x
 
 
+LPadType = int | Literal["none", "steady", "full"]
+
+
 def TimeReductionLayer(
     stride: int,
     lpad: LPadType = 0,
@@ -961,12 +962,12 @@ class SlicedSequential(nn.Sequential):
 
     def __init__(self, *modules) -> None:
         super().__init__(*modules)
-        self.extra_left_context, self.stride = self.__get_extra_left_context_and_stride(
+        self.extra_left_context, self.stride = self._get_extra_left_context_and_stride(
             list(self)
         )
 
     @staticmethod
-    def __get_extra_left_context_and_stride(seq) -> tuple[int, int]:
+    def _get_extra_left_context_and_stride(seq) -> tuple[int, int]:
         left, stride = 0, 1
         for mod in seq:
             if hasattr(mod, "extra_left_context") and hasattr(mod, "stride"):
@@ -992,7 +993,7 @@ class MultiHeadAttention(nn.Module):
 
     Parameters
     ----------
-    input_dim: .
+    input_dim: Feature dimension of the inputs.
     num_heads: Number of parallel attention heads. Note that ``embed_dim``
         will be split across ``num_heads`` (i.e. each head will have dimension
         ``embed_dim // num_heads``).
@@ -1041,9 +1042,6 @@ class MultiHeadAttention(nn.Module):
         self.stride = self.window.stride
         self._init_and_register_attn_mask()
 
-    def _register_attn_mask(self, attn_mask: torch.Tensor) -> None:
-        self.register_buffer("attn_mask", attn_mask)
-
     def _attn_params(
         self,
         windows: torch.Tensor,  # (N, T_out, window_size, input_dim)
@@ -1080,7 +1078,7 @@ class MultiHeadAttention(nn.Module):
         # reflect the manner in which each modality stream are concatenated, such that
         # attention can be applied to the causal histories of all streams in one
         # attentional receptive field.
-        self._register_attn_mask(attn_mask)
+        self.register_buffer("attn_mask", attn_mask)
 
     def _attn_params_op(
         self,
@@ -1284,7 +1282,7 @@ def ConformerEncoderBlock(
     (attn_block): Attention block
     (conv_block): Convolution block
     (ff_block2): FF block
-    (layer_norm)
+    (layer_norm): Layer normalization
     """
     ff_block1: nn.Module = Residual(
         SlicedSequential(
@@ -1439,7 +1437,7 @@ def HandwritingConformer(
     num_layers: int | None = None,
     dropout: float = 0.0,
     time_reduction_stride: int = 1,
-):
+) -> SlicedSequential:
     """Builder function for a conformer-based handwriting model.
 
     -> TimeReductionLayer
@@ -1486,14 +1484,43 @@ def HandwritingConformer(
 
 
 class HandwritingArchitecture(nn.Module):
+    """Conformer-based architecture for handwriting recognition.
+    This architecture is designed to process multivariate EMG signals and
+    produce emissions for a sequence-to-sequence model.
+
+    Takes as input batches of shape
+        (batch_size, num_channels, time)
+    and produces emissions of shape
+        (batch_size, downsampled_time, vocab_size)
+    where `downsampled_time` is computed based on the architecture's downsampling
+    configuration, as computed by the `compute_time_downsampling`.
+
+    Parameters
+    ----------
+    num_channels : int
+        Number of EMG channels in the input data.
+    vocab_size : int
+        Size of the vocabulary for the output emissions.
+    featurizer : MultivariatePowerFrequencyFeatures
+        Feature extractor that converts raw EMG signals into
+        multivariate power frequency features.
+    specgram_augment : MaskAug
+        SpecAugment module (`MaskAug`) module for data augmentation.
+    invariance_layer : RotationInvariantMPFMLP
+        Layer that applies rotation invariance to the multivariate
+        power frequency features.
+    encoder : SlicedSequential
+        Conformer encoder that processes the features and produces emissions.
+    """
+
     def __init__(
         self,
-        num_channels,
-        vocab_size,
+        num_channels: int,
+        vocab_size: int,
         featurizer: MultivariatePowerFrequencyFeatures,
-        specgram_augment,
-        invariance_layer,
-        encoder,
+        specgram_augment: MaskAug,
+        invariance_layer: RotationInvariantMPFMLP,
+        encoder: SlicedSequential,
     ) -> None:
         super().__init__()
 
@@ -1507,7 +1534,7 @@ class HandwritingArchitecture(nn.Module):
 
         self.slice = slice(self.conformer.extra_left_context, -1, self.conformer.stride)
 
-    def forward(self, inputs):
+    def forward(self, inputs: torch.Tensor) -> tuple[torch.Tensor, slice]:
         x = self.featurizer(inputs)
         x = self.specaug(x)
         x = self.rotation_invariant_mlp(x)
@@ -1518,7 +1545,7 @@ class HandwritingArchitecture(nn.Module):
 
     def compute_time_downsampling(
         self, emg_lengths: torch.Tensor, slc: slice
-    ) -> Sequence[int]:
+    ) -> list[int]:
         # Featurization
         emg_lengths = self.featurizer.compute_time_downsampling(emg_lengths)
 

@@ -245,6 +245,67 @@ class FingerStateMaskGenerator(torch.nn.Module):
 
 
 class DiscreteGesturesModule(BaseLightningModule):
+    """
+    PyTorch Lightning module for discrete gesture classification
+
+    This module implements a complete training pipeline for classifying discrete
+    gestures from EMG data. It uses binary cross-entropy loss with a masking
+    strategy to handle the temporal dependencies between press and release events.
+
+    Parameters
+    ----------
+    network : nn.Module
+        The neural network architecture for gesture recognition.
+        Expected to have `left_context` and `stride` attributes.
+    optimizer : torch.optim.Optimizer
+        Optimizer instance.
+    learning_rate : float
+        Base learning rate for training. Scaled during warmup and decayed at milestones.
+    lr_scheduler_milestones : list[int]
+        Epochs at which to reduce learning rate.
+    lr_scheduler_factor : float
+        Factor by which to reduce learning rate at milestones.
+    warmup_start_factor : float
+        Starting learning rate factor for warmup (lr * start_factor).
+    warmup_end_factor : float
+        Ending learning rate factor for warmup (typically 1.0).
+    warmup_total_epochs : int
+        Number of epochs for learning rate warmup.
+    gradient_clip_val : float
+        Maximum gradient norm for gradient clipping.
+
+    Attributes
+    ----------
+    loss_fn : torch.nn.BCEWithLogitsLoss
+        Binary cross-entropy loss with logits.
+    mask_generator : FingerStateMaskGenerator
+        Generates state-based masks for release events.
+    val_accuracy : MulticlassAccuracy
+        Validation accuracy metric for gesture classification.
+
+    Notes
+    -----
+    The module uses a masking strategy where release events only contribute to
+    the loss when the corresponding finger is in a pressed state.
+
+    For evaluation, this module uses two different metrics:
+    1. MulticlassAccuracy (validation): A standard accuracy metric that evaluates
+       predictions within fixed time windows around gesture events.
+
+    2. CLER (test): A more comprehensive metric that evaluates both classification
+       accuracy and temporal precision of gesture predictions. Unlike
+       MulticlassAccuracy, CLER accounts for the precise timing of predicted events
+       and uses dynamic programming to find optimal alignments between predictions and
+       ground truth.
+
+    CLER cannot be used during validation because it requires a large number of
+    samples to be estimated reliably and involves computationally expensive
+    alignment process.
+    Therefore, CLER is computed only during testing over the entire test dataset, while
+    the simpler MulticlassAccuracy metric provides batch-wise feedback during
+    validation.
+    """
+
     def __init__(
         self,
         network: nn.Module,
@@ -295,7 +356,7 @@ class DiscreteGesturesModule(BaseLightningModule):
                 flattened_index = (
                     y_hat.argmax()
                 )  # Get the index of max probability of the predicted class
-                rows, cols = y_hat.shape
+                _, cols = y_hat.shape
                 col = flattened_index % cols
                 y_hat_class.append(col)
                 y_class.append(index[1])
@@ -394,6 +455,30 @@ class DiscreteGesturesModule(BaseLightningModule):
 
 
 class HandwritingModule(BaseLightningModule):
+    """
+    Handwriting module.
+
+    This module is designed for handwriting recognition tasks using EMG data.
+    It includes a network for processing EMG signals, an optimizer for training,
+    a learning rate scheduler, and a decoder for converting model outputs into text.
+    It also implements a CTC loss function for training and character error rate metrics
+    for evaluation.
+
+    Parameters
+    ----------
+    network : nn.Module
+        The neural network model for processing EMG signals.
+    optimizer : torch.optim.Optimizer
+        The optimizer used for training the network.
+    lr_scheduler : dict[str, Any]
+        A dictionary containing the learning rate scheduler configuration.
+        It should include 'schedules' (list of schedulers) and 'milestones'
+        (as defined by pytorch's documentation:
+        https://docs.pytorch.org/docs/stable/optim.html).
+    decoder : Decoder
+        The decoder used to convert model outputs into text.
+    """
+
     def __init__(
         self,
         network: nn.Module,
@@ -424,7 +509,25 @@ class HandwritingModule(BaseLightningModule):
         )
         torch.autograd.set_detect_anomaly(True)
 
-    def _step(self, batch: Mapping[str, torch.Tensor], stage: str = "train") -> float:
+    def _step(
+        self, batch: Mapping[str, torch.Tensor], stage: str = "train"
+    ) -> torch.Tensor:
+        """
+        Perform a training, validation, or test step.
+
+        Parameters
+        ----------
+        batch : Mapping[str, torch.Tensor]
+            A dictionary containing the input data and targets.
+            It should include
+                * 'emg' (EMG data),
+                * 'prompts' (target text),
+                * 'emg_lengths' (lengths of EMG sequences), and
+                * 'prompt_lengths' (lengths of target text).
+        stage : str, optional
+            The stage of the training process ('train', 'val', or 'test').
+            Default is 'train'.
+        """
         emg = batch["emg"]
         prompts = batch["prompts"]
 
@@ -484,7 +587,12 @@ class HandwritingModule(BaseLightningModule):
         self.log_dict(metrics.compute(), sync_dist=True)
         metrics.reset()
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> dict[str, Any]:
+        """
+        Configure optimizers and learning rate schedulers.
+        See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html # noqa: E501
+        for more details.
+        """
         self.optimizer = self.optimizer(self.parameters())
         return {
             "optimizer": self.optimizer,
@@ -492,7 +600,8 @@ class HandwritingModule(BaseLightningModule):
                 "scheduler": torch.optim.lr_scheduler.SequentialLR(
                     self.optimizer,
                     schedulers=[
-                        s(self.optimizer) for s in self.lr_scheduler["schedules"]
+                        sched(self.optimizer)
+                        for sched in self.lr_scheduler["schedules"]
                     ],
                     milestones=self.lr_scheduler["milestones"],
                 ),
