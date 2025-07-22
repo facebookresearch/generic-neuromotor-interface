@@ -12,6 +12,7 @@ from typing import Any
 
 import hydra
 import pytorch_lightning as pl
+import torch.distributed as dist
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -83,16 +84,28 @@ def train(
             module, results = module_and_results
 
     if config.eval:
-        # NOTE: rank 0 only
+        # rank 0 only
         # Validate and test run on 1 device only (i.e. no distributed data parallelism)
         # This is to ensure reproducibility of metrics reported.
-        results = _run_validate_and_test(
-            module=module,
-            datamodule=datamodule,
-            results=results,
-            logger=logger,
-            accelerator=accelerator,
-        )
+
+        del datamodule, trainer
+        logger.info("Destroying process group...")
+        if dist.is_initialized():
+            dist.destroy_process_group()
+        logger.info("Destroyed process group.")
+
+        if pl.utilities.rank_zero_only.rank == 0:
+            logger.info("Re-instantiating LightningDataModule for evaluation...")
+            datamodule = instantiate(config.data_module, _convert_="all")
+
+            results = _run_validate_and_test(
+                module=module,
+                datamodule=datamodule,
+                results=results,
+                logger=logger,
+                accelerator=accelerator,
+                config=config,
+            )
 
     _log_pretty_results(results=results, logger=logger)
 
@@ -103,6 +116,8 @@ def evaluate_from_checkpoint(
     config: DictConfig,
     checkpoint_path: str,
     logger: logging.Logger | None = None,
+    evaluate_validation_set: bool = True,
+    evaluate_test_set: bool = True,
 ) -> dict[str, Any]:
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -122,23 +137,20 @@ def evaluate_from_checkpoint(
     datamodule = instantiate(config.data_module, _convert_="all")
 
     accelerator = config.trainer.get("accelerator", "auto")
-    trainer = Trainer(
-        accelerator=accelerator,
-        devices=1,
-    )
-
-    logger.info("Running validation...")
-    val_results = trainer.validate(model=module, datamodule=datamodule)
-    logger.info(f"Validation completed! {val_results=}")
-
-    logger.info("Running test...")
-    test_results = trainer.test(model=module, datamodule=datamodule)
-    logger.info(f"Test completed! {test_results=}")
 
     results = {}
     results["checkpoint_path"] = checkpoint_path
-    results["val_metrics"] = val_results
-    results["test_metrics"] = test_results
+
+    results = _run_validate_and_test(
+        module=module,
+        datamodule=datamodule,
+        results=results,
+        logger=logger,
+        accelerator=accelerator,
+        config=config,
+        evaluate_validation_set=evaluate_validation_set,
+        evaluate_test_set=evaluate_test_set,
+    )
 
     return results
 
@@ -169,24 +181,48 @@ def _load_and_report_best_checkpoint(
 
 
 @pl.utilities.rank_zero_only
-def _run_validate_and_test(module, datamodule, results, logger, accelerator):
-    logger.info("Running validate and test w/ devices=1 only...")
-
+def _run_validate_and_test(
+    module,
+    datamodule,
+    results,
+    logger,
+    accelerator,
+    config,
+    evaluate_validation_set=True,
+    evaluate_test_set=True,
+):
     trainer = Trainer(
         accelerator=accelerator,
         devices=1,
     )
 
-    logger.info("Running validation...")
-    val_results = trainer.validate(model=module, datamodule=datamodule)
-    logger.info(f"Validation completed! {val_results=}")
+    if evaluate_validation_set:
+        # Run evaluation on the val set
+        logger.info("Running validation...")
+        val_results = trainer.validate(model=module, datamodule=datamodule)
+        logger.info(f"Validation completed! {val_results=}")
 
-    logger.info("Running test...")
-    test_results = trainer.test(model=module, datamodule=datamodule)
-    logger.info(f"Test completed! {test_results=}")
+        results["val_metrics"] = val_results
 
-    results["val_metrics"] = val_results
-    results["test_metrics"] = test_results
+    if evaluate_test_set:
+        # Discrete gestures task requires CPU, so re-initialize Trainer
+        task = config.get("task")
+        if task == "discrete_gestures":
+            logger.info(
+                f"Running test-set evaluation for {task=} on cpu due to CUDNN "
+                f"incompatibilities with large sequence length."
+            )
+            trainer = Trainer(
+                accelerator="cpu",
+                devices=1,
+            )
+
+        # Run evaluation on the test set
+        logger.info("Running test...")
+        test_results = trainer.test(model=module, datamodule=datamodule)
+        logger.info(f"Test completed! {test_results=}")
+
+        results["test_metrics"] = test_results
 
     return results
 

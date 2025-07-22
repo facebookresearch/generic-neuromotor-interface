@@ -11,19 +11,14 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 
-from generic_neuromotor_interface.constants import EMG_SAMPLE_RATE
 from generic_neuromotor_interface.data import (
     DataSplit,
-    HandwritingEmgDataset,
-    Partitions,
-    WindowedEmgDataset,
+    make_dataset,
+    make_handwriting_dataset,
 )
-from generic_neuromotor_interface.transforms import Transform
-from generic_neuromotor_interface.utils import (
-    get_full_dataset_path,
-    handwriting_collate,
-)
-from torch.utils.data import ConcatDataset, DataLoader, default_collate
+from generic_neuromotor_interface.transforms import HandwritingTransform, Transform
+from generic_neuromotor_interface.utils import handwriting_collate
+from torch.utils.data import DataLoader, default_collate
 
 
 def custom_collate_fn(batch):
@@ -86,10 +81,9 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         corresponding partitions for the train, val, and test
         splits.
     transform : Transform
-        A composed sequence of transforms that takes
-        a window/slice of `EmgRecording` in the form of a numpy
-        structured array and a pandas DataFrame with prompt labels
-        and times, and returns a `torch.Tensor` instance.
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a pandas DataFrame with
+        prompt labels and times, and returns a `torch.Tensor` instance.
     data_location : str
         Path to where the dataset files are stored.
     emg_augmentation : Callable[[torch.Tensor], torch.Tensor], optional
@@ -120,44 +114,42 @@ class WindowedEmgDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.data_location = data_location
 
-    def _make_dataset(
-        self, partition_dict: dict[str, Partitions | None], stage: str
-    ) -> ConcatDataset:
-        datasets = []
-        for dataset, partitions in partition_dict.items():
-            # A single partition that spans the entire dataset
-            if partitions is None:
-                partitions = [(-np.inf, np.inf)]
-
-            for start, end in partitions:
-                # Skip partitions that are too short
-                partition_samples = (end - start) * EMG_SAMPLE_RATE
-                if partition_samples < self.window_length:
-                    print(f"Skipping partition {dataset} {start} {end}")
-                    continue
-
-                datasets.append(
-                    WindowedEmgDataset(
-                        get_full_dataset_path(self.data_location, dataset),
-                        start=start,
-                        end=end,
-                        transform=self.transform,
-                        # At test time, we feed in the entire partition in one
-                        # window to be more consistent with real-time deployment.
-                        window_length=None if stage == "test" else self.window_length,
-                        stride=None if stage == "test" else self.stride,
-                        jitter=stage == "train",
-                        emg_augmentation=(
-                            self.emg_augmentation if stage == "train" else None
-                        ),
-                    )
-                )
-        return ConcatDataset(datasets)
-
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = self._make_dataset(self.data_split.train, "train")
-        self.val_dataset = self._make_dataset(self.data_split.val, "val")
-        self.test_dataset = self._make_dataset(self.data_split.test, "test")
+        if stage == "fit" or stage is None:
+            self.train_dataset = make_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                partition_dict=self.data_split.train,
+                window_length=self.window_length,
+                stride=self.stride,
+                jitter=True,
+                emg_augmentation=self.emg_augmentation,
+                split_label="train",
+            )
+        if stage == "fit" or stage == "validate" or stage is None:
+            self.val_dataset = make_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                partition_dict=self.data_split.val,
+                window_length=self.window_length,
+                stride=self.stride,
+                jitter=False,
+                emg_augmentation=None,
+                split_label="val",
+            )
+        if stage == "test" or stage is None:
+            self.test_dataset = make_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                partition_dict=self.data_split.test,
+                # At test time, we feed in the entire partition in one
+                # window to be more consistent with real-time deployment.
+                window_length=None,
+                stride=None,
+                jitter=False,
+                emg_augmentation=None,
+                split_label="test",
+            )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -191,13 +183,57 @@ class WindowedEmgDataModule(pl.LightningDataModule):
 
 
 class HandwritingEmgDataModule(pl.LightningDataModule):
+    """A PyTorch LightningDataModule for constructing dataloaders to
+    assemble batches of handwriting EMG data.
+
+    Automatically takes care of applying random jitter to the windows
+    used by the train dataloader, but not to the validation and test dataloaders.
+
+    The test dataloader is also enforced to return data over single partitions,
+    rather than the longer windows (created during prompt concatenation) that
+    are created when `concatenate_prompts=True`.
+
+    Parameters
+    ----------
+    batch_size : int
+        The number of samples per batch.
+    padding : tuple[int, int]
+        Zero-padding to apply to the beginning and end of the EMG data.
+        This is dependent on the model architecture and should be used
+        to ensure that the output of the model has the same length, no
+        matter the input length. In other words it is used to account
+        for the kernel size of the convolutional layers of the model.
+    num_workers : int
+        The number of subprocesses to use for data loading.
+    data_split : DataSplit
+        A dataclass containing a dictionary of datasets and
+        corresponding partitions for the train, val, and test
+        splits.
+    transform : HandwritingTransform
+        A callable that takes a window/slice of `EmgRecording` in the
+        form of a numpy structured array and a prompt string, and
+        returns a dictionary with "emg" and "prompts" keys.
+    data_location : str
+        Path to where the dataset files are stored.
+    emg_augmentation : Callable[[torch.Tensor], torch.Tensor] | None
+        An optional function that takes an EMG tensor and returns
+        an augmented EMG tensor.
+    concatenate_prompts : bool
+        Whether to perform concatenation of multiple prompt samples
+        up to `min_duration_s` seconds. This is useful to improve
+        model performance and training stability.
+    min_duration_s : float
+        Minimum duration of the EMG recording in seconds when using
+        `concatenate_prompts=True`. Ignored otherwise.
+    """
+
     def __init__(
         self,
         batch_size: int,
         padding: tuple[int, int],
         num_workers: int,
         data_split: DataSplit,
-        transform: Transform,
+        transform: HandwritingTransform,
         data_location: str,
         emg_augmentation: Callable[[torch.Tensor], torch.Tensor] | None = None,
         concatenate_prompts: bool = False,
@@ -216,37 +252,40 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         self.concatenate_prompts = concatenate_prompts
         self.min_duration_s = min_duration_s
 
-    def _make_dataset(
-        self, partition_dict: dict[str, Partitions | None], stage: str
-    ) -> ConcatDataset:
-        datasets = []
-        for dataset, partitions in partition_dict.items():
-            # A single partition that spans the entire dataset
-            if partitions is None:
-                partitions = [(-np.inf, np.inf)]
-
-            for _, _ in partitions:
-                datasets.append(
-                    HandwritingEmgDataset(
-                        get_full_dataset_path(self.data_location, dataset),
-                        padding=self.padding,
-                        transform=self.transform,
-                        jitter=stage == "train",
-                        emg_augmentation=(
-                            self.emg_augmentation if stage == "train" else None
-                        ),
-                        concatenate_prompts=(
-                            self.concatenate_prompts if stage == "train" else False
-                        ),
-                        min_duration_s=self.min_duration_s if stage == "train" else 0.0,
-                    )
-                )
-        return ConcatDataset(datasets)
-
     def setup(self, stage: str | None = None) -> None:
-        self.train_dataset = self._make_dataset(self.data_split.train, "train")
-        self.val_dataset = self._make_dataset(self.data_split.val, "val")
-        self.test_dataset = self._make_dataset(self.data_split.test, "test")
+        if stage == "fit" or stage is None:
+            self.train_dataset = make_handwriting_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                padding=self.padding,
+                dataset_names=list(self.data_split.train.keys()),
+                emg_augmentation=self.emg_augmentation,
+                concatenate_prompts=self.concatenate_prompts,
+                min_duration_s=self.min_duration_s,
+                split_label="train",
+            )
+        if stage == "fit" or stage == "validate" or stage is None:
+            self.val_dataset = make_handwriting_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                padding=self.padding,
+                dataset_names=list(self.data_split.val.keys()),
+                emg_augmentation=None,
+                concatenate_prompts=False,
+                min_duration_s=0.0,
+                split_label="val",
+            )
+        if stage == "test" or stage is None:
+            self.test_dataset = make_handwriting_dataset(
+                data_location=self.data_location,
+                transform=self.transform,
+                padding=self.padding,
+                dataset_names=list(self.data_split.test.keys()),
+                emg_augmentation=None,
+                concatenate_prompts=False,
+                min_duration_s=0.0,
+                split_label="test",
+            )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -269,8 +308,6 @@ class HandwritingEmgDataModule(pl.LightningDataModule):
         )
 
     def test_dataloader(self) -> DataLoader:
-        # Test dataset does not involve windowing and entire partitions are
-        # fed at once. Limit batch size to 1 to fit within GPU memory.
         return DataLoader(
             self.test_dataset,
             batch_size=1,

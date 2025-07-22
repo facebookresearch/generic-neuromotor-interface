@@ -104,7 +104,8 @@ class CharacterSet:
         for model training. The null class label can be obtained via ``null_class``
         (such as for the blank token label in CTC).
 
-    Args:
+    Parameters
+    ----------
         key_to_unicode (OrderedDict): OrderedDict of valid/supported characters
             and pynput keys to their corresponding unicode values. Order
             matters for class label generation. (default: ``KEY_TO_UNICODE``)
@@ -117,7 +118,6 @@ class CharacterSet:
 
     # Tuples of supported modifier keys (in pynput representation) and
     # corresponding unicode values.
-    # https://wincent.com/wiki/Unicode_representations_of_modifier_keys.
     MODIFIER_TO_UNICODE: ClassVar[list[tuple[KeyChar, int]]] = [
         ("Key.backspace", 9003),  # ⌫
         ("Key.enter", 9166),  # ⏎
@@ -137,9 +137,9 @@ class CharacterSet:
 
     # Map of unicode chars to pynput key representations.
     UNICHAR_TO_KEY: ClassVar[Mapping[UniChar, KeyChar]] = {
-        " ": "Key.space",
-        "\u2192": "_",  # Explicit space (to ignore)
-        "\r": "Key.enter",
+        " ": "Key.space",  # ␣
+        "\u2192": "_",  # Explicit space
+        "\r": "Key.enter",  # ⏎
         "\u21e5": "Key.tab",  # ⇥
         "\u21e7": "Key.shift",  # ⇧
         "\u2303": "Key.ctrl",  # ⌃
@@ -148,14 +148,14 @@ class CharacterSet:
         "\u23ce": "Key.enter",  # ⏎
         "\u2191": "Key.shift_l",  # ↑ -- straight
         "\u21e1": "Key.shift_r",  # ⇡ -- dotted
-        "🤏": "Key.pause",  # Treat pinch gesture as Pause as a placeholder
+        "🤏": "Key.pause",
     }
 
     # Map of unsupported chars to their equivalent supported counterparts.
     CHAR_SUBSTITUTIONS: ClassVar[Mapping[UniChar, UniChar]] = {
         "\n": "⏎",
         "\r": "⏎",
-        "\b": "⌫",  # same as \x08
+        "\b": "⌫",
         "’": "'",
         "“": '"',
         "”": '"',
@@ -233,10 +233,10 @@ class CharacterSet:
         after cleaning up and standardizing.
 
         Supports conversion from both unicode chars (such as "⏎⇧⌫") and
-        printable character strings (such as '\n', '\r', '\x08', ' ').
+        printable character strings (such as '\n', '\r', '\b', ' ').
 
         Example:
-        ``unicode_str`` = ``"the\x08⏎\n"``
+        ``unicode_str`` = ``"the\b⏎\n"``
         returns ``['t', 'h', 'e', 'Key.backspace', 'Key.enter', 'Key.enter']``
         """
         keys = list(self._normalize_str(unicode_str))
@@ -372,19 +372,20 @@ class Decoder(abc.ABC):
         self,
         emissions: np.ndarray,
         timestamps: np.ndarray,
-        finish: bool = False,
-    ):
+    ) -> list[int]:
         """Online decoding API that updates decoder state and returns the
         decoded sequence thus far.
 
-        Args:
+        Parameters
+        ----------
             emissions (`np.ndarray`): Emission probability matrix of shape
-                (T, num_classes).
+            (T, num_classes).
             timestamps (`np.ndarray`): Timestamps corresponding to emissions
-                of shape (T, ).
-        Return:
-            A `LabelData` instance with the decoding thus far and their
-                corresponding onset timestamps.
+            of shape (T, ).
+
+        Returns
+        -------
+            list[int]: A list of decoded labels, representing the decoding thus far.
         """
         raise NotImplementedError
 
@@ -392,20 +393,23 @@ class Decoder(abc.ABC):
         self,
         emissions: np.ndarray,
         emission_lengths: np.ndarray,
-    ):
+    ) -> list[list[int]]:
         """Offline decoding API that operates over a batch of emission logits.
 
         This simply loops over each batch element and calls `decode` in sequence.
         Override if a more efficient implementation is possible for the specific
         decoding algorithm.
 
-        Args:
+        Parameters
+        ----------
             emissions (`np.ndarray`): A batch of emission probability matrices
                 of shape (T, N, num_classes).
-            emission_lengths: An array of size N with the valid temporal lengths
-                of each emission matrix in the batch after removal of padding.
-        Return:
-            A list of `LabelData` instances, one per batch item.
+            emission_lengths (`np.ndarray`): An array of size N with the valid temporal
+                lengths of each emission matrix in the batch after removal of padding.
+
+        Returns
+        -------
+            list[list[int]]: A list of decoded label sequences, one per batch item.
         """
         assert emissions.ndim == 3  # (T, N, num_classes)
         assert emission_lengths.ndim == 1
@@ -439,8 +443,7 @@ class CTCGreedyDecoder(Decoder):
         self,
         emissions: np.ndarray,
         timestamps: np.ndarray,
-        finish: bool = False,
-    ):
+    ) -> list[int]:
         assert emissions.ndim == 2  # (T, num_classes)
         assert emissions.shape[1] == self._charset.num_classes
         assert len(emissions) == len(timestamps)
