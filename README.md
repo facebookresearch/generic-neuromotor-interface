@@ -1,10 +1,14 @@
 # A generic noninvasive neuromotor interface for human-computer interaction
 
-[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`BibTeX`](#citation) ]
+[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`BibTeX`](#citation) ] 
+
+[![Neuromotor CI](https://github.com/facebookresearch/generic-neuromotor-interface/actions/workflows/main.yml/badge.svg)](https://github.com/facebookresearch/generic-neuromotor-interface/actions/workflows/main.yml)
 
 This repo is for exploring surface electromyography (sEMG) data and training models associated with the paper ["A generic noninvasive neuromotor interface for human-computer interaction"](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2).
 
 The dataset contains sEMG recordings from 100 participants in each of the three tasks described in the paper: `discrete_gestures`, `handwriting`, and `wrist`. This repo contains implementations of the models in the paper as well as code for training and evaluating the models.
+
+
 
 ![Figure 1 from the paper](images/figure_1.png)
 
