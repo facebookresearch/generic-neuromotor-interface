@@ -28,7 +28,7 @@ def download_models(task_name, model_dir):
     print(f"Downloading the pretrained model for {task_name}...")
 
     # Create directories
-    task_dir = ensure_dir(Path(model_dir) / task_name)
+    task_dir = ensure_dir((Path(model_dir) / task_name).expanduser())
 
     # Download the tar file
     tar_path = task_dir / f"{task_name}.tar"
@@ -38,7 +38,7 @@ def download_models(task_name, model_dir):
     # Extract the tar file
     extract_tar(tar_path, task_dir, "Extracting model files")
 
-    print(f"Model for {task_name} downloaded and extracted to {task_dir}")
+    print(f"Model for {task_name} downloaded and extracted to {task_dir.absolute()}")
     return task_dir
 
 

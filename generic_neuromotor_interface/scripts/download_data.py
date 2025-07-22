@@ -33,7 +33,7 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
     print(f"Downloading the {dataset} data for {task_name}...")
 
     # Create directory
-    data_dir = ensure_dir(Path(emg_data_dir))
+    data_dir = ensure_dir(Path(emg_data_dir).expanduser())
 
     # Check flag file (has data already been downloaded?)
     flag_file = Path(data_dir / f".data_downloaded_{dataset}_{task_name}")
@@ -56,19 +56,23 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
     # Extract the tar file
     extract_tar(tar_path, data_dir, "Unzipping the data")
 
-    # Download the corpus spreadsheet
-    print("Downloading the corpus spreadsheet...")
+    # Download the corpus CSV
+    print("Downloading the corpus CSV file...")
     corpus_filename = f"{task_name}_corpus.csv"
     corpus_path = data_dir / corpus_filename
     corpus_url = f"{base_url}/data/{task_name}/{corpus_filename}"
     download_file(
-        corpus_url, corpus_path, f"Downloading {task_name} corpus spreadsheet"
+        corpus_url, corpus_path, f"Downloading {task_name} corpus CSV file"
     )
 
     # Touch the flag file to signal data was downloaded
     flag_file.touch()
 
-    print(f"Data for {task_name} ({dataset}) downloaded and extracted to {data_dir}")
+    print(
+        f"Data for {task_name} ({dataset}) downloaded and "
+        f"extracted to {data_dir.absolute()}"
+    )
+
     return data_dir
 
 
