@@ -35,8 +35,7 @@ To download the full dataset to `~/emg_data` for a given task, run:
 ```bash
 python -m generic_neuromotor_interface.scripts.download_data \
     --task $TASK_NAME \
-    --dataset-type full_data \  # full dataset
-    --output_dir ~/emg_data
+    --output-dir ~/emg_data
 ```
 
 where `$TASK_NAME`  is one of {`discrete_gestures, handwriting, wrist`}.
@@ -44,10 +43,11 @@ where `$TASK_NAME`  is one of {`discrete_gestures, handwriting, wrist`}.
 Alternatively, you can download and extract a smaller version of the dataset with only 3 participants per task to quickly get started:
 
 ```bash
+# NOTE: `--small-subset` downloads only 3 users per task
 python -m generic_neuromotor_interface.scripts.download_data \
     --task $TASK_NAME \
-    --dataset-type small_subset \  # only 3 users per task
-    --output_dir ~/emg_data
+    --output-dir ~/emg_data \
+    --small-subset
 ```
 
 To download pretrained checkpoints for a task, run:
@@ -55,7 +55,7 @@ To download pretrained checkpoints for a task, run:
 ```bash
 python -m generic_neuromotor_interface.scripts.download_models \
     --task $TASK_NAME \
-    --output_dir ~/emg_models
+    --output-dir ~/emg_models
 ```
 
 The extracted output contains a `.ckpt` file and a `model_config.yaml` file.

@@ -78,20 +78,20 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
 
 @click.command(help="Download data for neuromotor interface tasks.")
 @click.option(
+    "--small-subset",
+    is_flag=True,
+    default=False,
+    help=(
+        "Download only the small subset of data (for testing/exploration)."
+        "Default is full data."
+    )
+)
+@click.option(
     "--task",
     "task_name",
     type=click.Choice(["handwriting", "discrete_gestures", "wrist"]),
     required=True,
     help="Name of the task to download data for.",
-)
-@click.option(
-    "--dataset-type",
-    type=click.Choice(["full_data", "small_subset"]),
-    required=True,
-    help=(
-        "Whether to download the full dataset or a subset. "
-        "Use 'small_subset' for testing / exploration."
-    ),
 )
 @click.option(
     "--output-dir",
@@ -100,10 +100,11 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
     required=True,
     help="Directory where the downloaded data will be stored.",
 )
-def main(task_name, dataset_type, output_dir):
+def main(task_name, small_subset, output_dir):
     """
     Download data for neuromotor interface tasks.
     """
+    dataset_type = "small_subset" if small_subset else "full_data"
     download_data(task_name, dataset_type, output_dir)
 
 
