@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 # Dictionary of expected values organized by task, data size, and metrics
 EXPECTED_TEST_VALUES = {
     "wrist": {
