@@ -1,6 +1,6 @@
 # A generic noninvasive neuromotor interface for human-computer interaction
 
-[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`BibTeX`](#citation) ] 
+[ [`Paper`](https://www.biorxiv.org/content/10.1101/2024.02.23.581779v2) ] [ [`BibTeX`](#citation) ]
 
 [![Neuromotor CI](https://github.com/facebookresearch/generic-neuromotor-interface/actions/workflows/main.yml/badge.svg)](https://github.com/facebookresearch/generic-neuromotor-interface/actions/workflows/main.yml)
 
