@@ -8,47 +8,57 @@ The dataset contains sEMG recordings from 100 participants in each of the three 
 
 ![Figure 1 from the paper](images/figure_1.png)
 
-## Download the data and models
-
-> NOTE: The instructions on this page are for MacOS.
-
-Clone the `generic-neuromotor-interface` repo and move it to your home directory.
-
-To download the full dataset to `~/emg_data` for a given task, run:
-
-```bash
-cd ~/generic-neuromotor-interface
-./scripts/download_data.sh <TASK_NAME> full_data ~/emg_data
-```
-
-where `<TASK_NAME>` is one of `discrete_gestures, handwriting, wrist`.
-
-Alternatively, you can download and extract a smaller version of the dataset with only 3 participants per task to quickly get started:
-
-```bash
-cd ~/generic-neuromotor-interface
-./scripts/download_data.sh <TASK_NAME> small_subset ~/emg_data
-```
-
-To download the models for a task, run:
-
-```bash
-./scripts/download_models.sh <TASK_NAME> ~/emg_models
-```
-
 ## Setup
+
+First, clone this repository and navigate to the root directory.
+
+```bash
+git clone https://github.com/facebookresearch/generic-neuromotor-interface.git
+cd generic-neuromotor-interface
+```
 
 Now setup the conda environment and install the local package.
 
 ```bash
 # Setup and activate the environment
-cd ~/generic-neuromotor-interface
 conda env create -f environment.yml
 conda activate neuromotor
 
 # Install this repository as a package
 pip install -e .
 ```
+
+## Download the data and models
+
+To download the full dataset to `~/emg_data` for a given task, run:
+
+```bash
+python -m generic_neuromotor_interface.scripts.download_data \
+    --task $TASK_NAME \
+    --output-dir ~/emg_data
+```
+
+where `$TASK_NAME`  is one of {`discrete_gestures, handwriting, wrist`}.
+
+Alternatively, you can download and extract a smaller version of the dataset with only 3 participants per task to quickly get started:
+
+```bash
+# NOTE: `--small-subset` downloads only 3 users per task
+python -m generic_neuromotor_interface.scripts.download_data \
+    --task $TASK_NAME \
+    --output-dir ~/emg_data \
+    --small-subset
+```
+
+To download pretrained checkpoints for a task, run:
+
+```bash
+python -m generic_neuromotor_interface.scripts.download_models \
+    --task $TASK_NAME \
+    --output-dir ~/emg_models
+```
+
+The extracted output contains a `.ckpt` file and a `model_config.yaml` file.
 
 ## Explore the data in a notebook
 
@@ -63,7 +73,8 @@ jupyter lab notebooks/explore_data.ipynb
 Train a model via:
 
 ```bash
-python -m generic_neuromotor_interface.train --config-name=<TASK_NAME>
+python -m generic_neuromotor_interface.train \
+    --config-name=$TASK_NAME
 ```
 
 Note that this requires downloading the `full_data` dataset as described earlier.
@@ -71,14 +82,30 @@ Note that this requires downloading the `full_data` dataset as described earlier
 You can also launch a small test run (1 epoch on the `small_subset` dataset) via:
 
 ```bash
-python -m generic_neuromotor_interface.train --config-name=<TASK_NAME> trainer.max_epochs=1 trainer.accelerator=cpu data_module/data_split=<TASK_NAME>_mini_split
+python -m generic_neuromotor_interface.train \
+    --config-name=$TASK_NAME \
+    trainer.max_epochs=1 \
+    trainer.accelerator=cpu \
+    data_module/data_split=${TASK_NAME}_mini_split
 ```
 
 After training, the model checkpoint will be available at `./logs/<DATE>/<TIME>/lightning_logs/<VERSION>/checkpoints/`, and the model config will be available at `./logs/<DATE>/<TIME>/hydra_configs/config.yaml`.
 
 ## Evaluate a model
 
-Model evaluation on the test set is automatically performed in the training script after training is complete. But if you want to run evaluation ad-hoc on any given trained model, please see the evaluation notebooks provided at `notebooks/<TASK_NAME>-eval.ipynb` for code to run inference with each model and run a full evaluation on the test set. These notebooks also provide some visualizations of the model outputs.
+Model evaluation on the validation and test sets is automatically performed in the training script after training is complete.
+
+We also provide interactive notebooks to run model evaluation on any given trained model. Please see the evaluation notebooks:
+
+```bash
+jupyter lab notebooks
+
+# see:
+# notebooks/discrete_gestures_eval.ipynb
+# notebooks/handwriting_eval.ipynb
+# notebooks/wrist_eval.ipynb
+```
+These notebooks also provide some visualizations of the model outputs.
 
 ## Dataset details
 
@@ -88,7 +115,7 @@ We are releasing data from 100 data collection participants for each task: 80 tr
 
 Evaluation metrics may deviate slightly from the published results due to subsampling of the test participants (as there is considerable variability across participants) and variability across model seeds.
 
-Each recording is stored in an `.hdf5` file, and there can be multiple recordings per participant. There is also a `.csv` file for each task (`<TASK_NAME>_corpus.csv`) documenting the recordings included for each participant, start and end times for each relevant "stage" from the experimental protocol (see below), and their assignment to the train / val / test splits. This `.csv` file is downloaded alongside the data by the `download_data.sh` script described above.
+Each recording is stored in an `.hdf5` file, and there can be multiple recordings per participant. There is also a `.csv` file for each task (`${TASK_NAME}_corpus.csv`) documenting the recordings included for each participant, start and end times for each relevant "stage" from the experimental protocol (see below), and their assignment to the train / val / test splits. This `.csv` file is downloaded alongside the data by the download script described above.
 
 sEMG is recorded at 2 kHz and is high pass filtered at 40 Hz. Timestamps are expressed in seconds. A `stages` dataframe is included in each dataset that encodes the time of each stage of the experiment (see `explore_data.ipynb` for more details). Specifics for each task are as follows:
 
