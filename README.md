@@ -224,15 +224,13 @@ The dataset and the code are CC-BY-NC-4.0 licensed, as found in the LICENSE file
 ## Citation
 
 ```
-@article{generic_neuromotor_interface_2024,
- author = {CTRL-labs at Reality Labs},
- title = {A generic noninvasive neuromotor interface for human-computer interaction},
- elocation-id = {2024.02.23.581779},
- year = {2024},
- doi = {10.1101/2024.02.23.581779},
- publisher = {Cold Spring Harbor Laboratory},
- URL = {https://www.biorxiv.org/content/early/2024/07/23/2024.02.23.581779},
- eprint = {https://www.biorxiv.org/content/early/2024/07/23/2024.02.23.581779.full.pdf},
- journal = {bioRxiv}
+@article{generic_neuromotor_interface_2025,
+  title = {A generic non-invasive neuromotor interface for human-computer interaction},
+  author = {Kaifosh, Patrick and Reardon, Thomas R. and CTRL-labs at Reality Labs},
+  journal = {Nature},
+  year = {2025},
+  doi = {10.1038/s41586-025-09255-w},
+  issn = {1476-4687},
+  url = {https://www.nature.com/articles/s41586-025-09255-w},
 }
 ```
