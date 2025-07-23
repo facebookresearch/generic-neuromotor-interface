@@ -1,0 +1,54 @@
+defaults:
+  - _self_
+  - data_module: wrist_data_module
+  - data_module/data_split: wrist_split
+  - lightning_module: wrist_module
+
+# Data settings
+data_location: ~/emg_data
+task: "wrist"
+
+# Train settings
+seed: 42
+train: True # Whether to run training
+eval: True # Whether to run evaluation on validation and test splits
+
+# Number of nodes to train in DDP (1 node = 1 machine (e.g. G4))
+# So 2 nodes ==> 2xG4 ==> 2x8 GPUs ==> 16 GPUs
+num_nodes: 1
+
+trainer:
+  min_epochs: null
+  max_epochs: 300
+  strategy: ddp
+  accelerator: auto
+  deterministic: true
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  gradient_clip_val: 1
+  gradient_clip_algorithm: norm
+
+callbacks:
+  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: epoch
+  - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    monitor: val_loss
+  - _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: val_loss
+    patience: 50
+
+# Customize hydra directory outputs
+# see: https://hydra.cc/docs/0.11/configure_hydra/workdir/
+hydra:
+  run:
+    dir: logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ${hydra.run.dir}
+    subdir: ${hydra.job.num}_${hydra.job.override_dirname}/seed=${seed}
+  output_subdir: hydra_configs
+  job:
+    name: wrist
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed

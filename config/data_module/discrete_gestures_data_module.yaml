@@ -1,0 +1,18 @@
+_target_: generic_neuromotor_interface.data_module.WindowedEmgDataModule
+window_length: 16_000 # 8 seconds at 2kHz
+stride: 16_000 # match window_length to minimize overlapping samples
+batch_size: 64 # per instance batch size, total batch size is batch_size * nodes (e.g. 64 * 8 = 512 on G5)
+# Multiple data workers can fail on some machines. See:
+# https://stackoverflow.com/questions/60684061/typeerror-h5py-objects-cannot-be-pickled
+num_workers: 0
+
+transform:
+  _target_: generic_neuromotor_interface.transforms.DiscreteGesturesTransform
+  # 40 ms pulses centered 100 ms after the event
+  pulse_window: [0.08, 0.12]
+
+data_location: ${data_location}
+
+emg_augmentation:
+  _target_: generic_neuromotor_interface.augmentation.RotationAugmentation
+  rotation: 2

@@ -1,0 +1,116 @@
+_target_: generic_neuromotor_interface.lightning.HandwritingModule
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 6e-4
+  weight_decay: 0.05
+  _partial_: true
+
+lr_scheduler:
+  interval: "epoch"
+  milestones: [50]
+  schedules:
+    - _target_: torch.optim.lr_scheduler.LinearLR
+      start_factor: 0.1
+      total_iters: ${lightning_module.lr_scheduler.milestones[0]}
+      _partial_: true
+    - _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+      T_max: ${trainer.max_epochs}
+      _partial_: true
+
+network:
+  _target_: generic_neuromotor_interface.networks.HandwritingArchitecture
+  num_channels: 16
+  vocab_size: 100
+
+  featurizer:
+    _target_: generic_neuromotor_interface.networks.MultivariatePowerFrequencyFeatures
+    window_length: 160
+    stride: 40
+    n_fft: 64
+    fft_stride: 10
+    frequency_bins:
+      - - 0
+        - 50
+      - - 30
+        - 100
+      - - 100
+        - 225
+      - - 225
+        - 375
+      - - 375
+        - 700
+      - - 700
+        - 1000
+
+  specgram_augment:
+    _target_: generic_neuromotor_interface.networks.MaskAug
+    max_num_masks: [3, 2] # T,F
+    max_mask_lengths: [5, 1] # T,F
+    dims: "TF"
+    axes_by_coord:
+      N: [0]
+      F: [1]
+      C: [2, 3]
+      T: [4]
+    mask_value: 0.0
+
+  invariance_layer:
+    _target_: generic_neuromotor_interface.networks.RotationInvariantMPFMLP
+
+    num_channels: ${lightning_module.network.num_channels}
+    num_freqs: 6
+    hidden_dims: [64]
+    offsets:
+      - -1
+      - 0
+      - 1
+    num_adjacent_cov: 8
+
+  encoder:
+    _target_: generic_neuromotor_interface.networks.HandwritingConformer
+    in_dim: 64
+    out_dim: ${lightning_module.network.vocab_size}
+    log_softmax: true
+    input_dim: 64
+    ffn_dim: 128
+    kernel_size: 8
+    stride:
+      - 1
+      - 1
+      - 1
+      - 1
+      - 2
+      - 1
+      - 1
+      - 1
+      - 1
+      - 2
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+    num_heads: 4
+    attn_window_size:
+      - 16
+      - 16
+      - 16
+      - 16
+      - 16
+      - 16
+      - 16
+      - 16
+      - 16
+      - 16
+      - 8
+      - 8
+      - 8
+      - 8
+      - 8
+    num_layers: 15
+    dropout: 0.1
+    time_reduction_stride: 2
+
+decoder:
+  _target_: generic_neuromotor_interface.handwriting_utils.CTCGreedyDecoder

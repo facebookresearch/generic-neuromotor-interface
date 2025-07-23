@@ -1,0 +1,29 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
+import enum
+from typing import Literal
+
+Task = Literal["discrete_gestures", "handwriting", "wrist"]
+
+
+EMG_NUM_CHANNELS = 16
+EMG_SAMPLE_RATE = 2000  # Hz
+
+
+class GestureType(enum.Enum):
+    """Discrete gesture types and their corresponding indices
+    in the discrete gestures decoder output"""
+
+    index_press = 0
+    index_release = 1
+    middle_press = 2
+    middle_release = 3
+    thumb_click = 4
+    thumb_down = 5
+    thumb_in = 6
+    thumb_out = 7
+    thumb_up = 8

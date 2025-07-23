@@ -1,0 +1,610 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
+import logging
+from collections.abc import Mapping
+from typing import Any
+
+import numpy as np
+
+import pytorch_lightning as pl
+import torch
+
+from generic_neuromotor_interface.cler import compute_cler
+from generic_neuromotor_interface.constants import GestureType
+from generic_neuromotor_interface.handwriting_utils import (
+    CharacterErrorRates,
+    charset,
+    Decoder,
+)
+from torch import nn
+from torchmetrics import MetricCollection
+from torchmetrics.classification import MulticlassAccuracy
+
+log = logging.getLogger(__name__)
+
+
+class BaseLightningModule(pl.LightningModule):
+    """Child classes should implement _step."""
+
+    def __init__(self, network: nn.Module, optimizer: torch.optim.Optimizer) -> None:
+        super().__init__()
+        self.save_hyperparameters()
+        self.network = network
+        self.optimizer = optimizer
+
+    def forward(self, emg: torch.Tensor) -> torch.Tensor:
+        return self.network(emg)
+
+    def training_step(self, batch, batch_idx) -> torch.Tensor:
+        return self._step(batch, stage="train")
+
+    def validation_step(self, batch, batch_idx) -> torch.Tensor:
+        return self._step(batch, stage="val")
+
+    def test_step(
+        self, batch, batch_idx, dataloader_idx: int | None = None
+    ) -> torch.Tensor:
+        return self._step(batch, stage="test")
+
+    def configure_optimizers(self):
+        return self.optimizer(self.parameters())
+
+
+class WristModule(BaseLightningModule):
+    def __init__(self, network: nn.Module, optimizer: torch.optim.Optimizer) -> None:
+        super().__init__(network=network, optimizer=optimizer)
+        self.loss_fn = torch.nn.L1Loss(reduction="mean")
+
+    def _step(
+        self, batch: Mapping[str, torch.Tensor], stage: str = "train"
+    ) -> torch.Tensor:
+        # Extract data
+        emg = batch["emg"]
+        wrist_angles = batch["wrist_angles"]
+
+        # Generate predictions
+        preds = self.forward(emg)
+
+        # Slice the raw wrist angles to align with the network predictions
+        wrist_angles = wrist_angles[
+            :, :, self.network.left_context :: self.network.stride
+        ]
+
+        # Take one-step differences of wrist angles to get (rescaled) velocity labels.
+        # We do this after slicing so that the differences are taken at the model
+        # output frequency (50Hz), not the frequency of the raw EMG (2000Hz). Since
+        # we don't know the label for the first timestep, remove the first prediction.
+        preds = preds[:, :, 1:]
+        labels = torch.diff(wrist_angles, dim=2)
+
+        # Compute loss
+        loss = self.loss_fn(preds, labels)
+        self.log(f"{stage}_loss", loss, sync_dist=True)
+
+        # Log mean absolute error in degrees/second
+        # The loss is in radians, so we convert to degrees and
+        # multiply by the model output frequency (50Hz)
+        mae_deg_s = np.rad2deg(loss.item()) * 50
+        self.log(f"{stage}_mae_deg_per_sec", mae_deg_s, sync_dist=True)
+
+        return loss
+
+
+class FingerStateMaskGenerator(torch.nn.Module):
+    """
+    Generate finger state masks based on press and release event labels.
+
+    Input labels are tensors of shape [batch, num_gestures, times] where
+    each channel has pulses representing events. Each pulse has a duration
+    of 40ms (8 samples at 200 Hz).
+
+    The output mask has value 1 from the beginning of the press until the
+    end of the release, and 0 elsewhere for each finger.
+
+    Parameters
+    ----------
+    lpad : int
+        Time step padding before the press event
+    rpad : int
+        Time step padding after the release event
+    """
+
+    def __init__(
+        self,
+        lpad: int = 0,
+        rpad: int = 0,
+    ) -> None:
+        super().__init__()
+
+        self.lpad = lpad
+        self.rpad = rpad
+
+        # Define finger output channels
+        self.INDEX_FINGER = 0
+        self.MIDDLE_FINGER = 1
+
+    def forward(self, gesture_labels: torch.Tensor) -> torch.Tensor:
+        """
+        Generate finger state masks from gesture labels using diff to find event onsets
+
+        Parameters
+        ----------
+        gesture_labels : torch.Tensor
+            Tensor of shape [batch, num_gestures, times] where each channel corresponds
+            to gesture types defined in GestureType.
+
+            Each gesture is represented as a pulse with 40ms duration
+            (8 samples at 200 Hz)
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of shape [batch, 2, times] where each channel corresponds to:
+                0: index finger state (1 when pressed, 0 when released)
+                1: middle finger state (1 when pressed, 0 when released)
+        """
+        batch_size, _, time_steps = gesture_labels.shape
+
+        # Initialize output masks for both fingers
+        finger_masks = torch.zeros(
+            (batch_size, 2, time_steps),
+            device=gesture_labels.device,
+            dtype=torch.float32,
+        )
+
+        # Process each sequence in the batch
+        for b in range(batch_size):
+            # Process index finger
+            self._process_finger(
+                gesture_labels[b],
+                finger_masks[b],
+                press_channel=GestureType.index_press.value,
+                release_channel=GestureType.index_release.value,
+                output_channel=self.INDEX_FINGER,
+                time_steps=time_steps,
+            )
+
+            # Process middle finger
+            self._process_finger(
+                gesture_labels[b],
+                finger_masks[b],
+                press_channel=GestureType.middle_press.value,
+                release_channel=GestureType.middle_release.value,
+                output_channel=self.MIDDLE_FINGER,
+                time_steps=time_steps,
+            )
+
+        return finger_masks
+
+    def _process_finger(
+        self,
+        gesture_labels: torch.Tensor,
+        finger_masks: torch.Tensor,
+        press_channel: int,
+        release_channel: int,
+        output_channel: int,
+        time_steps: int,
+    ) -> None:
+        """
+        Process a single finger's events to create its state mask
+
+        Parameters
+        ----------
+        gesture_labels : torch.Tensor
+            Gesture labels for a single batch item [9, times]
+        finger_masks : torch.Tensor
+            Output mask tensor for a single batch item [2, times]
+        press_channel : int
+            Channel index for press events
+        release_channel : int
+            Channel index for release events
+        output_channel : int
+            Output channel index
+        time_steps : int
+            Total number of time steps
+        """
+        # Extract press and release signals for this finger
+        press_signal = gesture_labels[press_channel]
+        release_signal = gesture_labels[release_channel]
+
+        # Calculate diff to find onsets, adding a zero at the beginning to maintain size
+        zero_tensor = torch.zeros(1, device=gesture_labels.device)
+        press_diff = torch.diff(press_signal, n=1, prepend=zero_tensor)
+        release_diff = torch.diff(release_signal, n=1, prepend=zero_tensor)
+
+        # Find indices where diff > 0 (onset detection)
+        press_onsets = torch.nonzero(press_diff > 0, as_tuple=True)[0]
+        release_onsets = torch.nonzero(release_diff > 0, as_tuple=True)[0]
+
+        # Ensure we have both press and release events
+        if press_onsets.numel() == 0 or release_onsets.numel() == 0:
+            return
+
+        # For each press, find the next release
+        for press_idx in press_onsets:
+            # Find all releases that occur after this press
+            future_releases = release_onsets[release_onsets > press_idx]
+
+            # If there's no future release, use the end of the sequence
+            if future_releases.numel() == 0:
+                release_idx = torch.tensor(time_steps - 1, device=finger_masks.device)
+            else:
+                # Use the first future release
+                release_idx = future_releases[0]
+
+            # Apply padding (with bounds checking)
+            start_idx = torch.clamp(press_idx - self.lpad, min=0)
+            end_idx = torch.clamp(release_idx + self.rpad + 1, max=time_steps)
+
+            # Set mask to 1 between press and release (inclusive)
+            finger_masks[output_channel, start_idx:end_idx] = 1.0
+
+
+class DiscreteGesturesModule(BaseLightningModule):
+    """
+    PyTorch Lightning module for discrete gesture classification
+
+    This module implements a complete training pipeline for classifying discrete
+    gestures from EMG data. It uses binary cross-entropy loss with a masking
+    strategy to handle the temporal dependencies between press and release events.
+
+    Parameters
+    ----------
+    network : nn.Module
+        The neural network architecture for gesture recognition.
+        Expected to have `left_context` and `stride` attributes.
+    optimizer : torch.optim.Optimizer
+        Optimizer instance.
+    learning_rate : float
+        Base learning rate for training. Scaled during warmup and decayed at milestones.
+    lr_scheduler_milestones : list[int]
+        Epochs at which to reduce learning rate.
+    lr_scheduler_factor : float
+        Factor by which to reduce learning rate at milestones.
+    warmup_start_factor : float
+        Starting learning rate factor for warmup (lr * start_factor).
+    warmup_end_factor : float
+        Ending learning rate factor for warmup (typically 1.0).
+    warmup_total_epochs : int
+        Number of epochs for learning rate warmup.
+    gradient_clip_val : float
+        Maximum gradient norm for gradient clipping.
+
+    Attributes
+    ----------
+    loss_fn : torch.nn.BCEWithLogitsLoss
+        Binary cross-entropy loss with logits.
+    mask_generator : FingerStateMaskGenerator
+        Generates state-based masks for release events.
+    val_accuracy : MulticlassAccuracy
+        Validation accuracy metric for gesture classification.
+
+    Notes
+    -----
+    The module uses a masking strategy where release events only contribute to
+    the loss when the corresponding finger is in a pressed state.
+
+    For evaluation, this module uses two different metrics:
+    1. MulticlassAccuracy (validation): A standard accuracy metric that evaluates
+       predictions within fixed time windows around gesture events.
+
+    2. CLER (test): A more comprehensive metric that evaluates both classification
+       accuracy and temporal precision of gesture predictions. Unlike
+       MulticlassAccuracy, CLER accounts for the precise timing of predicted events
+       and uses dynamic programming to find optimal alignments between predictions and
+       ground truth.
+
+    CLER cannot be used during validation because it requires a large number of
+    samples to be estimated reliably and involves computationally expensive
+    alignment process.
+    Therefore, CLER is computed only during testing over the entire test dataset, while
+    the simpler MulticlassAccuracy metric provides batch-wise feedback during
+    validation.
+    """
+
+    def __init__(
+        self,
+        network: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        learning_rate: float,
+        lr_scheduler_milestones: list[int],
+        lr_scheduler_factor: float,
+        warmup_start_factor: float,
+        warmup_end_factor: float,
+        warmup_total_epochs: int,
+        gradient_clip_val: float,
+    ) -> None:
+        super().__init__(network=network, optimizer=optimizer)
+        self.loss_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
+        self.mask_generator = FingerStateMaskGenerator(
+            lpad=0, rpad=7
+        )  # 40 ms at 200 Hz
+        self.val_accuracy = MulticlassAccuracy(num_classes=9)
+
+    def get_metrics(self, phase: str, domain: str | None = None) -> Any:
+        return self.val_accuracy
+
+    def collect_metric(
+        self,
+        logits: torch.Tensor,
+        target: torch.Tensor,
+        phase: str,
+        domain: str | None = None,
+    ) -> Any:
+        device = logits.device
+        w_start = 10  # 50 ms at 200 Hz
+        w_end = 30  # 150 ms at 200 Hz
+        probs = torch.sigmoid(logits)
+        # Cast label into int format
+        y = target.to(torch.int32)
+        y_class = []
+        y_hat_class = []
+
+        for batch in range(y.shape[0]):
+            y_diff = torch.diff(y[batch], axis=0)
+            indices = torch.argwhere(y_diff == 1)
+            for index in indices:
+                start = index[0] - w_start
+                end = index[0] + w_end
+                start = max(start, 0)  # Edge case
+                end = min(end, y.shape[1])  # Edge case
+                y_hat = probs[batch, start:end, :]
+                flattened_index = (
+                    y_hat.argmax()
+                )  # Get the index of max probability of the predicted class
+                _, cols = y_hat.shape
+                col = flattened_index % cols
+                y_hat_class.append(col)
+                y_class.append(index[1])
+
+        if len(y_class) > 0:
+            y_class = torch.stack(y_class).long().to(device)
+            y_hat_class = torch.stack(y_hat_class).long().to(device)
+        else:
+            y_class = torch.zeros(1, dtype=torch.int64, device=device)
+            y_hat_class = torch.zeros(1, dtype=torch.int64, device=device)
+
+        metric_value = self.get_metrics(phase, domain).update(y_hat_class, y_class)
+
+        self.log(
+            f"{phase}_accuracy",
+            self.val_accuracy,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
+        return metric_value
+
+    def _step(self, batch: Mapping[str, torch.Tensor], stage: str = "train") -> float:
+        # Extract data
+        emg = batch["emg"]
+        targets = batch["targets"]
+        targets = targets[:, :, self.network.left_context :: self.network.stride]
+        release_mask = self.mask_generator(targets)
+        mask = torch.ones_like(targets)
+        mask[
+            :, [GestureType.index_release.value, GestureType.middle_release.value], :
+        ] = release_mask
+
+        # Generate predictions
+        preds = self.forward(emg)
+
+        # Compute loss
+        loss = self.loss_fn(preds, targets)
+        loss = (loss * mask).sum() / mask.sum()
+        self.log(f"{stage}_loss", loss, sync_dist=True)
+
+        if stage == "val":
+            self.collect_metric(
+                preds.permute(0, 2, 1),  # Swap class and time dimensions
+                targets.permute(0, 2, 1),  # Swap class and time dimensions
+                phase=stage,
+            )
+
+        if stage == "test":
+            prompts = batch["prompts"][0]
+            times = batch["timestamps"][0]
+            preds = nn.Sigmoid()(preds)
+            preds = preds.squeeze(0).detach().cpu().numpy()
+            times = times[self.network.left_context :: self.network.stride]
+            cler = compute_cler(preds, times, prompts)
+            self.log("test_cler", cler, on_step=False, on_epoch=True, sync_dist=True)
+
+        return loss
+
+    def configure_optimizers(self):
+        """Configure optimizer with warm-up and MultiStepLR scheduler."""
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=self.hparams.learning_rate,
+        )
+
+        # Linear warm-up scheduler
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=self.hparams.warmup_start_factor,
+            end_factor=self.hparams.warmup_end_factor,
+            total_iters=self.hparams.warmup_total_epochs,
+        )
+
+        # MultiStepLR scheduler for after warm-up
+        multistep_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=self.hparams.lr_scheduler_milestones,
+            gamma=self.hparams.lr_scheduler_factor,
+        )
+        # Chain the schedulers: first warm-up, then multistep
+        scheduler = torch.optim.lr_scheduler.ChainedScheduler(
+            [warmup_scheduler, multistep_scheduler]
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
+            "gradient_clip_val": self.hparams.gradient_clip_val,
+        }
+
+
+class HandwritingModule(BaseLightningModule):
+    """
+    Handwriting module.
+
+    This module is designed for handwriting recognition tasks using EMG data.
+    It includes a network for processing EMG signals, an optimizer for training,
+    a learning rate scheduler, and a decoder for converting model outputs into text.
+    It also implements a CTC loss function for training and character error rate metrics
+    for evaluation.
+
+    Parameters
+    ----------
+    network : nn.Module
+        The neural network model for processing EMG signals.
+    optimizer : torch.optim.Optimizer
+        The optimizer used for training the network.
+    lr_scheduler : dict[str, Any]
+        A dictionary containing the learning rate scheduler configuration.
+        It should include 'schedules' (list of schedulers) and 'milestones'
+        (as defined by pytorch's documentation:
+        https://docs.pytorch.org/docs/stable/optim.html).
+    decoder : Decoder
+        The decoder used to convert model outputs into text.
+    """
+
+    def __init__(
+        self,
+        network: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        lr_scheduler: dict,
+        decoder: Decoder,
+    ) -> None:
+        super().__init__(network=network, optimizer=optimizer)
+
+        self.lr_scheduler = lr_scheduler
+
+        # Criterion
+        self.ctc_loss = nn.CTCLoss(
+            blank=charset().null_class,
+            zero_infinity=True,
+        )
+
+        # Decoder
+        self.decoder = decoder
+
+        # Metrics
+        metrics = MetricCollection([CharacterErrorRates()])
+        self.metrics = nn.ModuleDict(
+            {
+                f"{phase}_metrics": metrics.clone(prefix=f"{phase}/")
+                for phase in ["train", "val", "test"]
+            }
+        )
+        torch.autograd.set_detect_anomaly(True)
+
+    def _step(
+        self, batch: Mapping[str, torch.Tensor], stage: str = "train"
+    ) -> torch.Tensor:
+        """
+        Perform a training, validation, or test step.
+
+        Parameters
+        ----------
+        batch : Mapping[str, torch.Tensor]
+            A dictionary containing the input data and targets.
+            It should include
+                * 'emg' (EMG data),
+                * 'prompts' (target text),
+                * 'emg_lengths' (lengths of EMG sequences), and
+                * 'prompt_lengths' (lengths of target text).
+        stage : str, optional
+            The stage of the training process ('train', 'val', or 'test').
+            Default is 'train'.
+        """
+        emg = batch["emg"]
+        prompts = batch["prompts"]
+
+        emg_lengths = batch["emg_lengths"]
+        target_lengths = batch["prompt_lengths"]
+        N = len(emg_lengths)  # batch_size
+
+        emissions, slc = self.forward(emg)
+        emission_lengths = self.network.compute_time_downsampling(
+            emg_lengths=emg_lengths,
+            slc=slc,  # (N,)
+        )
+        loss = self.ctc_loss(
+            log_probs=emissions.movedim(
+                0, 1
+            ),  # (N,T,num_classes) -> (T, N, num_classes)
+            targets=prompts,  # (N, T)
+            input_lengths=emission_lengths,  # (N,)
+            target_lengths=target_lengths,  # (N,)
+        )
+        self.log(f"{stage}_loss", loss, sync_dist=True)
+
+        # Decode emissions
+        predictions = self.decoder.decode_batch(
+            emissions=emissions.movedim(0, 1)
+            .detach()
+            .cpu()
+            .numpy(),  # (T, N, num_classes) -> (T, N, num_classes)
+            emission_lengths=emission_lengths.detach().cpu().numpy(),
+        )
+
+        # Update metrics
+        metrics = self.metrics[f"{stage}_metrics"]
+        prompts = prompts.detach().cpu().numpy()
+        target_lengths = target_lengths.detach().cpu().numpy()
+        for i in range(N):
+            # Unpad prompts (T, N) for batch entry
+            target = prompts[i, : target_lengths[i]]
+            metrics.update(
+                prediction=self.decoder._charset.labels_to_str(predictions[i]),
+                target=self.decoder._charset.labels_to_str(target),
+            )
+
+        return loss
+
+    def on_train_epoch_end(self) -> None:
+        self._on_epoch_end(stage="train")
+
+    def on_validation_epoch_end(self) -> None:
+        self._on_epoch_end(stage="val")
+
+    def on_test_epoch_end(self) -> None:
+        self._on_epoch_end(stage="test")
+
+    def _on_epoch_end(self, stage: str) -> None:
+        metrics = self.metrics[f"{stage}_metrics"]
+        self.log_dict(metrics.compute(), sync_dist=True)
+        metrics.reset()
+
+    def configure_optimizers(self) -> dict[str, Any]:
+        """
+        Configure optimizers and learning rate schedulers.
+        See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html # noqa: E501
+        for more details.
+        """
+        self.optimizer = self.optimizer(self.parameters())
+        return {
+            "optimizer": self.optimizer,
+            "lr_scheduler": {
+                "scheduler": torch.optim.lr_scheduler.SequentialLR(
+                    self.optimizer,
+                    schedulers=[
+                        sched(self.optimizer)
+                        for sched in self.lr_scheduler["schedules"]
+                    ],
+                    milestones=self.lr_scheduler["milestones"],
+                ),
+                "interval": self.lr_scheduler["interval"],
+            },
+        }

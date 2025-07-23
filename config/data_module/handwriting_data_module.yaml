@@ -1,0 +1,16 @@
+_target_: generic_neuromotor_interface.data_module.HandwritingEmgDataModule
+batch_size: 8
+padding: [19014, 974]
+concatenate_prompts: true
+min_duration_s: 16.0
+
+num_workers: 0
+
+transform:
+  _target_: generic_neuromotor_interface.transforms.HandwritingTransform
+
+data_location: ${data_location}
+
+emg_augmentation:
+  _target_: generic_neuromotor_interface.augmentation.RotationAugmentation
+  rotation: 1

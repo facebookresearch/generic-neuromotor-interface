@@ -1,0 +1,17 @@
+_target_: generic_neuromotor_interface.data_module.WindowedEmgDataModule
+window_length: 8_000 # 4 seconds at 2kHz
+stride: 8_000 # match window_length to minimize overlapping samples
+# NOTE: For models reported the paper, we used batch_size=1024 because MPF features
+# were precached. In this open-source codebase, we are computing MPF features inside
+# the network, which leads to memory issues on our GPU cluster. Reducing the batch
+# size to 256 fixes the issue.
+batch_size: 256
+
+# Multiple data workers can fail on some machines. See:
+# https://stackoverflow.com/questions/60684061/typeerror-h5py-objects-cannot-be-pickled
+num_workers: 0
+
+transform:
+  _target_: generic_neuromotor_interface.transforms.WristTransform
+
+data_location: ${data_location}

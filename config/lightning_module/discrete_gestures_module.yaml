@@ -1,0 +1,17 @@
+_target_: generic_neuromotor_interface.lightning.DiscreteGesturesModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-4
+  _partial_: true
+
+network:
+  _target_: generic_neuromotor_interface.networks.DiscreteGesturesArchitecture
+  output_channels: 9
+learning_rate: 5e-4
+lr_scheduler_milestones: [25]
+lr_scheduler_factor: 0.5
+warmup_start_factor: 0.001
+warmup_end_factor: 1.0
+warmup_total_epochs: 5
+gradient_clip_val: 0.5
