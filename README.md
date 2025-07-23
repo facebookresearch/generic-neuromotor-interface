@@ -111,7 +111,91 @@ These notebooks also provide some visualizations of the model outputs.
 
 ## Dataset details
 
-![alt text](images/data_stats.png)
+<div align="center">
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2">Quantity</th>
+          <th colspan="3">Discrete Gestures</th>
+          <th colspan="3">Handwriting</th>
+          <th colspan="3">Wrist</th>
+        </tr>
+        <tr>
+          <th>Train</th>
+          <th>Val</th>
+          <th>Test</th>
+          <th>Train</th>
+          <th>Val</th>
+          <th>Test</th>
+          <th>Train</th>
+          <th>Val</th>
+          <th>Test</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Number of Users</td>
+          <td>80</td>
+          <td>10</td>
+          <td>10</td>
+          <td>80</td>
+          <td>10</td>
+          <td>10</td>
+          <td>80</td>
+          <td>10</td>
+          <td>10</td>
+        </tr>
+        <tr>
+          <td>Number of Datasets</td>
+          <td>80</td>
+          <td>10</td>
+          <td>10</td>
+          <td>618</td>
+          <td>135</td>
+          <td>54</td>
+          <td>142</td>
+          <td>20</td>
+          <td>20</td>
+        </tr>
+        <tr>
+          <td>Hours</td>
+          <td>51.4</td>
+          <td>6.2</td>
+          <td>6.4</td>
+          <td>98.8</td>
+          <td>31.5</td>
+          <td>10.4</td>
+          <td>60.2</td>
+          <td>8.7</td>
+          <td>8.3</td>
+        </tr>
+        <tr>
+          <td>Datasets Per User</td>
+          <td>1.0</td>
+          <td>1.0</td>
+          <td>1.0</td>
+          <td>7.7</td>
+          <td>13.5</td>
+          <td>5.4</td>
+          <td>1.8</td>
+          <td>2.0</td>
+          <td>2.0</td>
+        </tr>
+        <tr>
+          <td>Hours Per User</td>
+          <td>0.6</td>
+          <td>0.6</td>
+          <td>0.6</td>
+          <td>1.2</td>
+          <td>3.2</td>
+          <td>1.0</td>
+          <td>0.8</td>
+          <td>0.9</td>
+          <td>0.8</td>
+        </tr>
+      </tbody>
+    </table>
+</div>
 
 We are releasing data from 100 data collection participants for each task: 80 train, 10 validation, and 10 test participants. Train participants correspond to those from the 80 participant data point in Figures 2e-g (except for Handwriting, where we randomly selected 80 participants from the 100 participant data point). The 10 validation and train participants were randomly selected from the full set of validation and test participants.
 
