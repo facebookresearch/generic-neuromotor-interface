@@ -16,7 +16,12 @@ from generic_neuromotor_interface.download_utils import (
 )
 
 
-def download_data(task_name: str, dataset: str, emg_data_dir: str):
+def download_data(
+    task_name: str,
+    dataset: str,
+    emg_data_dir: str,
+    cleanup: bool = True,
+) -> Path:
     """
     Download data for a specific task and dataset.
 
@@ -24,6 +29,7 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
         task_name (str): Name of the task (handwriting, discrete_gestures, or wrist)
         dataset (str): Dataset type (full_data or small_subset)
         emg_data_dir (str): Directory where the data will be stored
+        cleanup (bool): If True, remove the downloaded tar file after extraction
 
     Returns:
         Path: Path to the directory where data was downloaded
@@ -56,14 +62,17 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
     # Extract the tar file
     extract_tar(tar_path, data_dir, "Unzipping the data")
 
+    # Remove the tar file if cleanup is requested
+    if cleanup:
+        print(f"Deleting the tar file after extraction: {tar_path.name}")
+        tar_path.unlink()
+
     # Download the corpus CSV
     print("Downloading the corpus CSV file...")
     corpus_filename = f"{task_name}_corpus.csv"
     corpus_path = data_dir / corpus_filename
     corpus_url = f"{base_url}/data/{task_name}/{corpus_filename}"
-    download_file(
-        corpus_url, corpus_path, f"Downloading {task_name} corpus CSV file"
-    )
+    download_file(corpus_url, corpus_path, f"Downloading {task_name} corpus CSV file")
 
     # Touch the flag file to signal data was downloaded
     flag_file.touch()
@@ -84,7 +93,7 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
     help=(
         "Download only the small subset of data (for testing/exploration)."
         "Default is full data."
-    )
+    ),
 )
 @click.option(
     "--task",
@@ -100,12 +109,18 @@ def download_data(task_name: str, dataset: str, emg_data_dir: str):
     required=True,
     help="Directory where the downloaded data will be stored.",
 )
-def main(task_name, small_subset, output_dir):
+@click.option(
+    "--cleanup/--no-cleanup",
+    is_flag=True,
+    default=True,
+    help="If true, remove the downloaded tar file after extraction.",
+)
+def main(task_name, small_subset, output_dir, cleanup):
     """
     Download data for neuromotor interface tasks.
     """
     dataset_type = "small_subset" if small_subset else "full_data"
-    download_data(task_name, dataset_type, output_dir)
+    download_data(task_name, dataset_type, output_dir, cleanup)
 
 
 if __name__ == "__main__":
