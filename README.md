@@ -234,3 +234,11 @@ The dataset and the code are CC-BY-NC-4.0 licensed, as found in the LICENSE file
   url = {https://www.nature.com/articles/s41586-025-09255-w},
 }
 ```
+
+## Terms of use, privacy policy, copyright
+
+**Terms of Use** - https://opensource.fb.com/legal/terms
+
+**Privacy Policy** - https://opensource.fb.com/legal/privacy
+
+**Copyright © Meta Platforms, Inc**
